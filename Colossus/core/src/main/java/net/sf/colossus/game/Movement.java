@@ -317,8 +317,8 @@ abstract public class Movement
             }
         }
 
-        // Mulligan/UDC: if not found with primary roll, try alt roll
-        if (entrySides.isEmpty() && game.getMulliganDie1() > 0)
+        // Mulligan/UDC: also include entry sides from alt roll
+        if (game.getMulliganDie1() > 0)
         {
             int otherRoll = (movementRoll == game.getMulliganDie1())
                 ? game.getMulliganDie2() : game.getMulliganDie1();

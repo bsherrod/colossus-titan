@@ -2962,8 +2962,25 @@ public class GameServerSide extends Game
         else if ((reason = movementSS.isValidEntrySide(legion, hex, teleport,
             entrySide)) != null)
         {
-            setMovementRoll(savedRoll);
-            return reason;
+            // Mulligan/UDC: the client may have computed entry side using
+            // the other die value. Try the alt roll before rejecting.
+            if (getMulliganDie1() > 0)
+            {
+                int altRoll = (effectiveRoll == getMulliganDie1())
+                    ? getMulliganDie2() : getMulliganDie1();
+                setMovementRoll(altRoll);
+                if (movementSS.isValidEntrySide(legion, hex, teleport,
+                    entrySide) == null)
+                {
+                    reason = null;
+                    effectiveRoll = altRoll;
+                }
+            }
+            if (reason != null)
+            {
+                setMovementRoll(savedRoll);
+                return reason;
+            }
         }
         setMovementRoll(savedRoll);
 

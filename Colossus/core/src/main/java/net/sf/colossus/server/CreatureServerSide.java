@@ -423,6 +423,9 @@ public class CreatureServerSide extends Creature implements BattleCritter
                 int avgDamage = (dice * (7 - strikeNumber) + 5) / 6;
                 if (avgDamage > damage)
                 {
+                    LOGGER.info("Mulligan replaces " + damage + " hits with "
+                        + avgDamage + " (avg of " + dice + "d6 vs "
+                        + strikeNumber + ")");
                     damage = avgDamage;
                 }
             }
