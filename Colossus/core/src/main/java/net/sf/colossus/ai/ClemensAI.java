@@ -70,6 +70,7 @@ public class ClemensAI extends AbstractAI
     private int splitsDone = 0;
     private int splitsAcked = 0;
     private List<String> remainingMarkers = null;
+    private boolean teleportAttemptedThisTurn;
 
     private boolean showAiDebugSomethingBetter = false;
 
@@ -417,6 +418,7 @@ public class ClemensAI extends AbstractAI
 
         splitsDone = 0;
         splitsAcked = 0;
+        teleportAttemptedThisTurn = false;
         for (Legion legion : player.getLegions())
         {
             if (remainingMarkers.isEmpty())
@@ -953,8 +955,17 @@ public class ClemensAI extends AbstractAI
             MasterHex bestHex = null;
             MoveInfo bestMove = null;
             int bestValue = Integer.MIN_VALUE;
-            Set<MasterHex> set = client.getMovement().listAllMoves(legion,
-                legion.getCurrentHex(), client.getGame().getMovementRoll());
+            Set<MasterHex> set;
+            if (teleportAttemptedThisTurn)
+            {
+                set = client.getMovement().listNormalMoves(legion,
+                    legion.getCurrentHex(), client.getGame().getMovementRoll());
+            }
+            else
+            {
+                set = client.getMovement().listAllMoves(legion,
+                    legion.getCurrentHex(), client.getGame().getMovementRoll());
+            }
 
             for (MasterHex hex : set)
             {
@@ -1188,6 +1199,16 @@ public class ClemensAI extends AbstractAI
 
     private boolean doMove(Legion legion, MasterHex hex)
     {
+        if (!teleportAttemptedThisTurn)
+        {
+            Set<MasterHex> teleportHexes = client.getMovement()
+                .listTeleportMoves(legion, legion.getCurrentHex(),
+                    client.getGame().getMovementRoll());
+            if (teleportHexes.contains(hex))
+            {
+                teleportAttemptedThisTurn = true;
+            }
+        }
         return client.doMove(legion, hex);
     }
 

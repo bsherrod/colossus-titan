@@ -67,6 +67,7 @@ public class RationalAI extends SimpleAI
         // Refresh these once per turn.
         enemyAttackMap = buildEnemyAttackMap(client.getOwningPlayer());
         evaluateMoveMap.clear();
+        teleportAttemptedThisTurn = false;
 
         legionsToSplit.clear();
 
@@ -771,6 +772,7 @@ public class RationalAI extends SimpleAI
 
         if (telePort)
         {
+            teleportAttemptedThisTurn = true;
             bestMoveList = null;
         }
         return true;
@@ -877,7 +879,8 @@ public class RationalAI extends SimpleAI
         // since it may stick the legion that does not get to
         // teleport with a really bad move.  it is not easy
         // to figure this out though.
-        if (client.getGame().getMovementRoll() == 6)
+        if (client.getGame().getMovementRoll() == 6
+            && !teleportAttemptedThisTurn)
         {
             List<List<LegionBoardMove>> teleport_legionMoves = new ArrayList<List<LegionBoardMove>>();
             findMoveList(legions, teleport_legionMoves,

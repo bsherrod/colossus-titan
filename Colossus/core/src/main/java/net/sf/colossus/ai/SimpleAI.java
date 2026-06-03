@@ -65,6 +65,7 @@ public class SimpleAI extends AbstractAI
     private int splitsDone = 0;
     private int splitsAcked = 0;
     private List<String> remainingMarkers = null;
+    protected boolean teleportAttemptedThisTurn;
 
     public SimpleAI(Client client)
     {
@@ -246,6 +247,7 @@ public class SimpleAI extends AbstractAI
 
         splitsDone = 0;
         splitsAcked = 0;
+        teleportAttemptedThisTurn = false;
         for (Legion legion : player.getLegions())
         {
             if (remainingMarkers.isEmpty())
@@ -774,8 +776,17 @@ public class SimpleAI extends AbstractAI
             MasterHex bestHex = null;
             MoveInfo bestMove = null;
             int bestValue = Integer.MIN_VALUE;
-            Set<MasterHex> set = client.getMovement().listAllMoves(legion,
-                legion.getCurrentHex(), client.getGame().getMovementRoll());
+            Set<MasterHex> set;
+            if (teleportAttemptedThisTurn)
+            {
+                set = client.getMovement().listNormalMoves(legion,
+                    legion.getCurrentHex(), client.getGame().getMovementRoll());
+            }
+            else
+            {
+                set = client.getMovement().listAllMoves(legion,
+                    legion.getCurrentHex(), client.getGame().getMovementRoll());
+            }
 
             for (MasterHex hex : set)
             {
@@ -965,6 +976,17 @@ public class SimpleAI extends AbstractAI
 
     private boolean doMove(Legion legion, MasterHex hex)
     {
+        // Track if this is a teleport so we don't retry after NAK
+        if (!teleportAttemptedThisTurn)
+        {
+            Set<MasterHex> teleportHexes = client.getMovement()
+                .listTeleportMoves(legion, legion.getCurrentHex(),
+                    client.getGame().getMovementRoll());
+            if (teleportHexes.contains(hex))
+            {
+                teleportAttemptedThisTurn = true;
+            }
+        }
         return client.doMove(legion, hex);
     }
 
