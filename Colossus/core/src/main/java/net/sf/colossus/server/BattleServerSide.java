@@ -15,6 +15,7 @@ import net.sf.colossus.game.Battle;
 import net.sf.colossus.game.BattleCritter;
 import net.sf.colossus.game.BattlePhase;
 import net.sf.colossus.game.Creature;
+import net.sf.colossus.game.LauerPower;
 import net.sf.colossus.game.Legion;
 import net.sf.colossus.game.Player;
 import net.sf.colossus.game.actions.SummonUndo;
@@ -626,6 +627,21 @@ public final class BattleServerSide extends Battle
         if (phase == BattlePhase.FIGHT && !preStrikeEffectsApplied)
         {
             preStrikeEffectsApplied = true;
+
+            // Healer power: heal own creatures before strike phase
+            // Each friendly creature with hits > 0 gets 1 hit healed
+            for (BattleCritter c : getAllCritters())
+            {
+                CreatureServerSide critter = (CreatureServerSide)c;
+                if (critter.getPlayer().hasPower(LauerPower.HEALER)
+                    && critter.getHits() > 0 && !critter.isDead())
+                {
+                    critter.setHits(critter.getHits() - 1);
+                    LOGGER.log(Level.INFO, critter.getDescription()
+                        + " healed 1 hit by Healer power");
+                }
+            }
+
             for (BattleCritter c : getAllCritters())
             {
                 CreatureServerSide critter = (CreatureServerSide)c;

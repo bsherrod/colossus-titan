@@ -79,11 +79,16 @@ public final class PlayerServerSide extends Player implements
         // TODO why are the players on the client side numbered but not here?
         super(game, name, 0);
         this.myDice = new PlayerSpecificDice();
-
         // add package path to AI names and choose random type for "anyAI":
         setType(shortTypeName);
 
         InstanceTracker.register(this, name);
+    }
+
+    /** Access dice for scripted testing. */
+    public PlayerSpecificDice getDice()
+    {
+        return myDice;
     }
 
     /**

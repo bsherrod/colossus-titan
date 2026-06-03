@@ -92,6 +92,7 @@ public class ClientGUI implements IClientGUI, GUICallbacks
     private StatusScreen statusScreen;
     private CreatureCollectionView caretakerDisplay;
     private MovementDie movementDie;
+    private MovementDie movementDie2; // Second die for Mulligan/UDC
     private EngagementResults engagementResults;
     private AutoInspector autoInspector;
     private EventViewer eventViewer;
@@ -2553,6 +2554,7 @@ public class ClientGUI implements IClientGUI, GUICallbacks
             return;
         }
         logPerhaps("actOnTellMovementRoll(" + roll + ", " + reason + ")");
+        LOGGER.info("MOVEMENT ROLL: " + roll + " reason='" + reason + "'");
         // TODO move if block to eventviewer itself?
         // Not during replay, but during redo:
         if (!isReplayOngoing() || isRedoOngoing())
@@ -2565,6 +2567,30 @@ public class ClientGUI implements IClientGUI, GUICallbacks
         {
             movementDie = new MovementDie(4 * Scale.get(),
                 MovementDie.getDieImageName(roll));
+
+            // Mulligan/UDC: parse second die from reason string
+            movementDie2 = null;
+            if (reason != null && reason.contains("Mulligan: "))
+            {
+                try
+                {
+                    int idx = reason.indexOf("Mulligan: ") + 10;
+                    int andIdx = reason.indexOf(" and ", idx);
+                    int endIdx = reason.indexOf(")", andIdx);
+                    int die1 = Integer.parseInt(
+                        reason.substring(idx, andIdx).trim());
+                    int die2 = Integer.parseInt(
+                        reason.substring(andIdx + 5, endIdx).trim());
+                    // Show the die that wasn't chosen as the main roll
+                    int otherDie = (roll == die1) ? die2 : die1;
+                    movementDie2 = new MovementDie(4 * Scale.get(),
+                        MovementDie.getDieImageName(otherDie));
+                }
+                catch (Exception e)
+                {
+                    // Parse failure - just show one die
+                }
+            }
             // TODO why do we not repaint if iconified?
             if (board.getFrame().getExtendedState() != JFrame.ICONIFIED)
             {
@@ -3689,6 +3715,11 @@ public class ClientGUI implements IClientGUI, GUICallbacks
     MovementDie getMovementDie()
     {
         return movementDie;
+    }
+
+    MovementDie getMovementDie2()
+    {
+        return movementDie2;
     }
 
     private void cleanupGUI()

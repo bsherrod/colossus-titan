@@ -114,7 +114,7 @@ public final class LegionServerSide extends Legion implements
         }
         else
         {
-            if (getHeight() >= 7)
+            if (getHeight() >= getPlayer().getMaxLegionHeight())
             {
                 LOGGER.log(Level.INFO, "Legion " + getLongMarkerName()
                     + " is full and cannot acquire: " + angelType);
@@ -346,7 +346,8 @@ public final class LegionServerSide extends Legion implements
      */
     boolean canRecruit()
     {
-        return (getRecruit() == null && getHeight() <= 6
+        return (getRecruit() == null
+            && getHeight() <= getPlayer().getMaxLegionHeight() - 1
             && !getPlayer().isDead() && !(game.findEligibleRecruits(this,
             getCurrentHex()).isEmpty()));
     }
@@ -358,9 +359,9 @@ public final class LegionServerSide extends Legion implements
         {
             return "Has already recruited " + recruit.getName();
         }
-        if (getHeight() > 6)
+        if (getHeight() > getPlayer().getMaxLegionHeight() - 1)
         {
-            return "Legion already 7 high";
+            return "Legion already full";
         }
         if (getPlayer().isDead())
         {
@@ -422,7 +423,7 @@ public final class LegionServerSide extends Legion implements
     boolean canSummonAngel()
     {
         PlayerServerSide player = getPlayer();
-        if (getHeight() >= 7 || player.hasSummoned())
+        if (getHeight() >= player.getMaxLegionHeight() || player.hasSummoned())
         {
             return false;
         }
@@ -440,9 +441,10 @@ public final class LegionServerSide extends Legion implements
       */
     boolean addCreature(CreatureType creature, boolean takeFromStack)
     {
-        assert getHeight() < 7
-            || (getHeight() == 7 && game.getTurnNumber() == 1) : "Tried "
-            + "to add to 7-high legion!";
+        int maxHeight = getPlayer().getMaxLegionHeight();
+        assert getHeight() < maxHeight
+            || (getHeight() == maxHeight && game.getTurnNumber() == 1)
+            : "Tried to add to full legion!";
         if (takeFromStack)
         {
             Caretaker caretaker = game.getCaretaker();

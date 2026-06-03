@@ -177,7 +177,12 @@ abstract public class Movement
 
         if (((movementRoll != 6 || legion.hasMoved() || player.hasTeleported()) && !inAdvance))
         {
-            return result;
+            // Mulligan first-turn teleport bypasses the roll=6 requirement
+            if (!(player.hasPower(LauerPower.MULLIGAN)
+                && game.getTurnNumber() == 1))
+            {
+                return result;
+            }
         }
 
         // Tower teleport
@@ -226,6 +231,19 @@ abstract public class Movement
                 }
             }
         }
+
+        // Mulligan power: first turn, all groups teleport within 6 of tower
+        if (player.hasPower(LauerPower.MULLIGAN)
+            && game.getTurnNumber() == 1)
+        {
+            MasterHex tower = player.getStartingTower();
+            if (tower != null)
+            {
+                result.addAll(findNearbyUnoccupiedHexes(tower, legion, 6,
+                    Constants.NOWHERE));
+            }
+        }
+
         result.remove(null);
         return result;
     }
@@ -268,10 +286,18 @@ abstract public class Movement
                     return entrySides;
                 }
             }
-            else
+            // Mulligan/UDC: try alt roll for teleport validation
+            else if (game.getMulliganDie1() > 0)
             {
-                return entrySides;
+                int otherRoll = (movementRoll == game.getMulliganDie1())
+                    ? game.getMulliganDie2() : game.getMulliganDie1();
+                if (isValidTeleportMove(legion, targetHex, otherRoll) == null)
+                {
+                    entrySides.add(EntrySide.BOTTOM);
+                    return entrySides;
+                }
             }
+            return entrySides;
         }
 
         // Normal moves.
@@ -290,6 +316,25 @@ abstract public class Movement
                 entrySides.add(EntrySide.fromLabel(buf));
             }
         }
+
+        // Mulligan/UDC: if not found with primary roll, try alt roll
+        if (entrySides.isEmpty() && game.getMulliganDie1() > 0)
+        {
+            int otherRoll = (movementRoll == game.getMulliganDie1())
+                ? game.getMulliganDie2() : game.getMulliganDie1();
+            Set<String> altTuples = findNormalMoves(currentHex, legion,
+                otherRoll, findBlock(currentHex), Constants.NOWHERE,
+                null, false);
+            for (String tuple : altTuples)
+            {
+                List<String> parts = Split.split(':', tuple);
+                if (parts.get(0).equals(targetHex.getLabel()))
+                {
+                    entrySides.add(EntrySide.fromLabel(parts.get(1)));
+                }
+            }
+        }
+
         return entrySides;
     }
 
@@ -397,7 +442,12 @@ abstract public class Movement
                         + findEntrySide(hex, cameFrom).getLabel());
                 }
             }
-            return result;
+            // Ninja power: can move THROUGH enemy-occupied hexes
+            if (!player.hasPower(LauerPower.NINJA))
+            {
+                return result;
+            }
+            // Ninja continues recursion past enemy hexes
         }
 
         if (roll == 0)

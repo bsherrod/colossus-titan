@@ -1,6 +1,8 @@
 package net.sf.colossus.server;
 
 
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -8,14 +10,9 @@ import net.sf.colossus.util.RandomDotOrgFileReader;
 
 
 /**
- * A dice specifically owned by an individual player. One
- * reason for that is that we want to use "high quality" rolls
- * from e.g. files from random.org for user-visible rolls,
- * but for "less important" things like random-generating of
- * moves or selecting arbitrarily from some choices the usual ones
- * from Java's PRNG are good enough.
- *
- * TODO: Eventually get rid of the "everything static" class "Dice" totally?
+ * A dice specifically owned by an individual player.
+ * Supports scripted roll injection for testing: push specific values
+ * onto the queue, and they'll be returned before falling back to random.
  */
 
 public class PlayerSpecificDice
@@ -24,6 +21,9 @@ public class PlayerSpecificDice
         .getLogger(PlayerSpecificDice.class.getName());
 
     private final RandomDotOrgFileReader randomSource;
+
+    /** Scripted rolls queue. When non-empty, nextRoll() returns from here. */
+    private final Queue<Integer> scriptedRolls = new LinkedList<Integer>();
 
     private final int[] MovementStats = new int[6];
     private int mmCount = 0;
@@ -41,11 +41,33 @@ public class PlayerSpecificDice
         }
     }
 
+    /** Push scripted movement rolls (used before random fallback). */
+    public void pushScriptedRolls(int... rolls)
+    {
+        for (int r : rolls)
+        {
+            scriptedRolls.add(r);
+        }
+    }
+
+    /** Clear any remaining scripted rolls. */
+    public void clearScriptedRolls()
+    {
+        scriptedRolls.clear();
+    }
+
     public int rollMovementDie()
     {
-        // compared to "Dice", we omit the synchronized here: on server
-        // side, there is always only one thread doing something.
-        int roll = randomSource.nextRoll();
+        int roll;
+        if (!scriptedRolls.isEmpty())
+        {
+            roll = scriptedRolls.poll();
+            LOGGER.fine("Using scripted movement roll: " + roll);
+        }
+        else
+        {
+            roll = randomSource.nextRoll();
+        }
         MovementStats[roll - 1]++;
         mmCount++;
         return roll;

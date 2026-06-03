@@ -23,10 +23,10 @@
 
 ## Current Status
 
-**Phase:** 1 — Data Model & Power Selection UI
-**Status:** NOT STARTED
-**Last Updated:** 2026-05-28
-**Blocking Questions:** None — all answered below
+**Phase:** ALL PHASES COMPLETE ✅
+**Status:** DONE — all 6 phases implemented
+**Last Updated:** 2026-05-29
+**Blocking Questions:** None
 
 ---
 
@@ -96,13 +96,13 @@ Source: `lauerpowers.html` in the project root.
 
 #### Tasks
 
-- [ ] 1.1 **Create `LauerPower` enum** in `net.sf.colossus.game`
+- [x] 1.1 **Create `LauerPower` enum** in `net.sf.colossus.game`
   - Constants: `ADMINISTRATOR`, `AMOEBA`, `ARCHER`, `ARCHMAGE`, `ARMOURER`, `AVIAN`, `BERSERKER`, `DEMON`, `THE_FOLKS`, `HEALER`, `KNIGHT`, `LIVING_DEAD`, `LORD_OF_THE_TREES`, `MARINES`, `MULLIGAN`, `NINE_BALL`, `NINJA`, `PROPHETESS`, `SMURFS`, `UPSIDE_DOWN_CAKE`, `VAMPIRE`, `YAHTZEE`, `ZOMBIE`
   - Fields: `displayName` (String), `description` (short one-liner)
   - Static method: `LauerPower[] getAll()` returns `values()`
   - `toString()` returns `displayName`
 
-- [ ] 1.2 **Create `PlayerPowers` class** in `net.sf.colossus.game`
+- [x] 1.2 **Create `PlayerPowers` class** in `net.sf.colossus.game`
   - Wraps `EnumSet<LauerPower>`
   - `boolean hasPower(LauerPower p)`
   - `Set<LauerPower> getPowers()`
@@ -111,31 +111,31 @@ Source: `lauerpowers.html` in the project root.
   - `static PlayerPowers deserialize(String s)` → parses back; empty string = no powers
   - `boolean isEmpty()`
 
-- [ ] 1.3 **Add `PlayerPowers` field to `Player` class**
+- [x] 1.3 **Add `PlayerPowers` field to `Player` class**
   - `private PlayerPowers powers = new PlayerPowers();`
   - `public PlayerPowers getPowers()` / `public void setPowers(PlayerPowers p)`
   - Convenience: `public boolean hasPower(LauerPower p)` delegates to `powers.hasPower(p)`
 
-- [ ] 1.4 **Add Options constant** in `Options.java`
+- [x] 1.4 **Add Options constant** in `Options.java`
   - `public static final String playerPowers = "Player powers ";` (appended with player index 0..N-1)
 
-- [ ] 1.5 **Add "Powers" tab to `GetPlayers`**
+- [x] 1.5 **Add "Powers" tab to `GetPlayers`**
   - New tab in `tabbedPane` (after existing tabs)
   - Layout: Left panel = scrollable list of checkboxes (one per LauerPower, labeled with displayName). Right panel = JTextArea showing description of currently hovered/selected power.
   - One section per player (use player color labels or "Player 0", "Player 1", etc.)
   - Checkboxes disabled for inactive player slots
   - On game start: serialize selected powers into `Options.playerPowers + i` for each player
 
-- [ ] 1.6 **Wire into game creation**
+- [x] 1.6 **Wire into game creation**
   - In `GameServerSide` (find where `PlayerServerSide` objects are created), read `Options.playerPowers + i` and call `player.setPowers(PlayerPowers.deserialize(...))`
   - If option is null/empty, player gets empty powers (no-op)
 
-- [ ] 1.7 **Save/Load support**
+- [x] 1.7 **Save/Load support**
   - In `GameSaving`: add `powers="ARCHER,HEALER"` attribute to `<player>` XML element
   - In `GameLoading`: read `powers` attribute, call `player.setPowers(PlayerPowers.deserialize(...))`
   - If attribute is missing (old save files), default to empty powers
 
-- [ ] 1.8 **Unit tests**
+- [x] 1.8 **Unit tests**
   - `core/src/test/java/net/sf/colossus/game/LauerPowerTest.java`:
     - All 23 powers exist
     - Display names are non-null and non-empty
@@ -148,7 +148,7 @@ Source: `lauerpowers.html` in the project root.
     - Deserialize of empty string returns empty set
     - Deserialize of null returns empty set
 
-- [ ] 1.9 **Build and verify**
+- [x] 1.9 **Build and verify**
   - `ant` compiles without errors
   - `ant test` passes all tests (existing + new)
 
@@ -177,16 +177,16 @@ Source: `lauerpowers.html` in the project root.
 
 #### Tasks
 
-- [ ] 2.1 Modify starting creature setup for: Avian (+2 gargoyles), Lord of Trees (+2 centaurs)
-- [ ] 2.2 Zombie: place specific creatures in dead pile at game start
-- [ ] 2.3 Nine Ball: set stacking limit to 9 for that player; add extra starting creatures
-- [ ] 2.4 Amoeba: 3 starting legions of 4 creatures; player not dead until ALL legions destroyed
-- [ ] 2.5 Vampire: two Titans; player dead only when both killed; Titan is a lord
-- [ ] 2.6 Demon: start with demon (angel-like) instead of Titan; dead when demon strength=0 or no legions
-- [ ] 2.7 Per-player stacking limit check (Nine Ball=9, others=7)
-- [ ] 2.8 Unit tests for each structural change
-- [ ] 2.9 Integration test: AI game with Avian + Nine Ball players runs to completion
-- [ ] 2.10 Build and verify
+- [x] 2.1 Modify starting creature setup for: Avian (+2 gargoyles), Lord of Trees (+2 centaurs)
+- [x] 2.2 Zombie: place specific creatures in dead pile at game start
+- [x] 2.3 Nine Ball: set stacking limit to 9 for that player; add extra starting creatures
+- [x] 2.4 Amoeba: 3 starting legions of 4 creatures; player not dead until ALL legions destroyed
+- [x] 2.5 Vampire: two Titans; player dead only when both killed; Titan is a lord
+- [x] 2.6 Demon: start with demon (angel-like) instead of Titan; dead when demon strength=0 or no legions
+- [x] 2.7 Per-player stacking limit check (Nine Ball=9, others=7)
+- [x] 2.8 Unit tests for each structural change
+- [x] 2.9 Integration test: AI game with Avian + Nine Ball players runs to completion
+- [x] 2.10 Build and verify
 
 ---
 
@@ -204,16 +204,16 @@ Source: `lauerpowers.html` in the project root.
 
 #### Tasks
 
-- [ ] 3.1 Mulligan: roll 2 dice, present both options per group; AI picks best
-- [ ] 3.2 Upside-Down Cake: offer 7-N as alternative movement number; one group may use the other number
-- [ ] 3.3 Ninja: allow moving through/over enemy groups; reroll option; non-sequential movement
-- [ ] 3.4 Archmage: on roll of 5, Titan group may teleport 5 spaces ignoring arrows
-- [ ] 3.5 Smurfs: all groups move one less than rolled (minimum 1)
-- [ ] 3.6 Vampire overrun: if group value ≥ 2.5× enemy, destroy enemy and continue movement
-- [ ] 3.7 Ninja: allow combining non-split groups on same hex
-- [ ] 3.8 AI hooks for die choice (Mulligan, Upside-Down Cake), reroll (Ninja), overrun (Vampire)
-- [ ] 3.9 Unit tests for movement modifications
-- [ ] 3.10 Build and verify
+- [x] 3.1 Mulligan: roll 2 dice, present both options per group; AI picks best
+- [x] 3.2 Upside-Down Cake: offer 7-N as alternative movement number; one group may use the other number
+- [x] 3.3 Ninja: allow moving through/over enemy groups; reroll option; non-sequential movement
+- [x] 3.4 Archmage: on roll of 5, Titan group may teleport 5 spaces ignoring arrows
+- [x] 3.5 Smurfs: all groups move one less than rolled (minimum 1)
+- [x] 3.6 Vampire overrun: if group value ≥ 2.5× enemy, destroy enemy and continue movement
+- [x] 3.7 Ninja: allow combining non-split groups on same hex
+- [x] 3.8 AI hooks for die choice (Mulligan, Upside-Down Cake), reroll (Ninja), overrun (Vampire)
+- [x] 3.9 Unit tests for movement modifications
+- [x] 3.10 Build and verify
 
 ---
 
@@ -231,16 +231,16 @@ Source: `lauerpowers.html` in the project root.
 
 #### Tasks
 
-- [ ] 4.1 Administrator: reduce required count by 1 for upward recruiting; recruit with creature worth ≥25% more
-- [ ] 4.2 Administrator: pre-battle recruitment (defender recruits before battle; attacker recruits in addition to summoning)
-- [ ] 4.3 The Folks: always recruit weakest creature in terrain, even from dead pile
-- [ ] 4.4 Living Dead: recruit from dead pile; recruit into dead pile even if "full"
-- [ ] 4.5 Lord of the Trees: recruit as if having extra warbear/minotaur/troll/cyclops in group
-- [ ] 4.6 Prophetess: recruit with any creature as if it's any creature it can downward-recruit to; any creature recruits as tower creature
-- [ ] 4.7 Zombie: recruit any creature from dead pile with any creature worth ≥ target's points
-- [ ] 4.8 AI hooks for expanded recruit choices
-- [ ] 4.9 Unit tests for each recruiting modification
-- [ ] 4.10 Build and verify
+- [x] 4.1 Administrator: reduce required count by 1 for upward recruiting; recruit with creature worth ≥25% more
+- [x] 4.2 Administrator: pre-battle recruitment (defender recruits before battle; attacker recruits in addition to summoning)
+- [x] 4.3 The Folks: always recruit weakest creature in terrain, even from dead pile
+- [x] 4.4 Living Dead: recruit from dead pile; recruit into dead pile even if "full"
+- [x] 4.5 Lord of the Trees: recruit as if having extra warbear/minotaur/troll/cyclops in group
+- [x] 4.6 Prophetess: recruit with any creature as if it's any creature it can downward-recruit to; any creature recruits as tower creature
+- [x] 4.7 Zombie: recruit any creature from dead pile with any creature worth ≥ target's points
+- [x] 4.8 AI hooks for expanded recruit choices
+- [x] 4.9 Unit tests for each recruiting modification
+- [x] 4.10 Build and verify
 
 ---
 
@@ -261,70 +261,70 @@ Source: `lauerpowers.html` in the project root.
 
 #### Sub-phase 5A: Passive Strike Modifiers
 
-- [ ] 5A.1 Armourer: extra hits to kill (non-flying +floor(2*str/3), flying +floor(str/3))
-- [ ] 5A.2 Berserker: +floor(strength/4) to all strikes (passive part)
-- [ ] 5A.3 Knight: +floor(strength/2) melee strikes
-- [ ] 5A.4 Marines: +floor(strength/4) melee; +ceil(strength/5) extra hits; no terrain penalties
-- [ ] 5A.5 Smurfs: strikes do only ceil(2/3) damage
-- [ ] 5A.6 Unit tests for each modifier
-- [ ] 5A.7 Build and verify
+- [x] 5A.1 Armourer: extra hits to kill (non-flying +floor(2*str/3), flying +floor(str/3))
+- [x] 5A.2 Berserker: +floor(strength/4) to all strikes (passive part)
+- [x] 5A.3 Knight: +floor(strength/2) melee strikes
+- [x] 5A.4 Marines: +floor(strength/4) melee; +ceil(strength/5) extra hits; no terrain penalties
+- [x] 5A.5 Smurfs: strikes do only ceil(2/3) damage
+- [x] 5A.6 Unit tests for each modifier
+- [x] 5A.7 Build and verify
 
 #### Sub-phase 5B: Dice Modifiers
 
-- [ ] 5B.1 Yahtzee: reroll any dice, take second result (player/AI chooses after seeing first roll)
-- [ ] 5B.2 Upside-Down Cake: use 7-roll for entire strike (choose before rolling)
-- [ ] 5B.3 Mulligan: after rolling, may instead do ceil(average hits) damage
-- [ ] 5B.4 Prophetess: roll twice, take either result
-- [ ] 5B.5 AI heuristics: reroll if below expected value; take better of two rolls
-- [ ] 5B.6 Unit tests
-- [ ] 5B.7 Build and verify
+- [x] 5B.1 Yahtzee: reroll any dice, take second result (player/AI chooses after seeing first roll)
+- [x] 5B.2 Upside-Down Cake: use 7-roll for entire strike (choose before rolling)
+- [x] 5B.3 Mulligan: after rolling, may instead do ceil(average hits) damage
+- [x] 5B.4 Prophetess: roll twice, take either result
+- [x] 5B.5 AI heuristics: reroll if below expected value; take better of two rolls
+- [x] 5B.6 Unit tests
+- [x] 5B.7 Build and verify
 
 #### Sub-phase 5C: Rangestrike Modifiers
 
-- [ ] 5C.1 Archer: all creatures rangestrike; rangestrikers fire twice; no range penalties; rangestrike through obstacles at -1/hex; skill-3 creatures rangestrike at range 4; rangestrike during counterstrike
-- [ ] 5C.2 Archer: may recruit gorgons/rangers from dead pile (add to recruit logic)
-- [ ] 5C.3 Knight: all creatures get one rangestrike per combat (track "used crossbow" per creature)
-- [ ] 5C.4 Archmage: Titan rangestrikes as warlock
-- [ ] 5C.5 Unit tests
-- [ ] 5C.6 Build and verify
+- [x] 5C.1 Archer: all creatures rangestrike; rangestrikers fire twice; no range penalties; rangestrike through obstacles at -1/hex; skill-3 creatures rangestrike at range 4; rangestrike during counterstrike
+- [x] 5C.2 Archer: may recruit gorgons/rangers from dead pile (add to recruit logic)
+- [x] 5C.3 Knight: all creatures get one rangestrike per combat (track "used crossbow" per creature)
+- [x] 5C.4 Archmage: Titan rangestrikes as warlock
+- [x] 5C.5 Unit tests
+- [x] 5C.6 Build and verify
 
 #### Sub-phase 5D: Active Combat Choices
 
-- [ ] 5D.1 Berserker: declare creatures going berserk (strike twice at +str/4, then die)
-- [ ] 5D.2 Healer: healing strikes against own creatures before strike phase
-- [ ] 5D.3 Ninja: death strike (creature dies, gets +remaining_hits dice); ninja-move phase after strikes
-- [ ] 5D.4 AI heuristics: never go berserk unless creature would die anyway; heal most-damaged creature; death strike only if creature is about to die
-- [ ] 5D.5 Unit tests
-- [ ] 5D.6 Build and verify
+- [x] 5D.1 Berserker: declare creatures going berserk (strike twice at +str/4, then die)
+- [x] 5D.2 Healer: healing strikes against own creatures before strike phase
+- [x] 5D.3 Ninja: death strike (creature dies, gets +remaining_hits dice); ninja-move phase after strikes
+- [x] 5D.4 AI heuristics: never go berserk unless creature would die anyway; heal most-damaged creature; death strike only if creature is about to die
+- [x] 5D.5 Unit tests
+- [x] 5D.6 Build and verify
 
 #### Sub-phase 5E: Flying/Movement in Battle
 
-- [ ] 5E.1 Avian: all creatures fly at speed 4; flying creatures hover; ogg attacks before movement
-- [ ] 5E.2 Smurfs: stack 2 creatures per hex in battle
-- [ ] 5E.3 Unit tests
-- [ ] 5E.4 Build and verify
+- [x] 5E.1 Avian: all creatures fly at speed 4; flying creatures hover; ogg attacks before movement
+- [x] 5E.2 Smurfs: stack 2 creatures per hex in battle
+- [x] 5E.3 Unit tests
+- [x] 5E.4 Build and verify
 
 #### Sub-phase 5F: Special Battle Mechanics
 
 Implement in order of increasing complexity:
 
-- [ ] 5F.1 Vampire: no flee allowed for opponent; Titan can leave battle; half points for own dead if win
-- [ ] 5F.2 Archmage: fire spell (each enemy takes floor(str/3) damage, once per battle)
-- [ ] 5F.3 The Folks: bring extra creatures onto battle map each movement phase
-- [ ] 5F.4 Living Dead: corpses remain on map; slow enemies in adjacent hexes; revive enemy dead after battle
-- [ ] 5F.5 Demon: possession mechanic (take control of enemy creature)
-- [ ] 5F.6 Nine Ball: nineball demilord appears in battle
-- [ ] 5F.7 Smurfs: helper group mechanic (nearby friendly legion assists)
-- [ ] 5F.8 Unit tests for each
-- [ ] 5F.9 Build and verify
+- [x] 5F.1 Vampire: no flee allowed for opponent; Titan can leave battle; half points for own dead if win
+- [x] 5F.2 Archmage: fire spell (each enemy takes floor(str/3) damage, once per battle)
+- [x] 5F.3 The Folks: bring extra creatures onto battle map each movement phase
+- [x] 5F.4 Living Dead: corpses remain on map; slow enemies in adjacent hexes; revive enemy dead after battle
+- [x] 5F.5 Demon: possession mechanic (take control of enemy creature)
+- [x] 5F.6 Nine Ball: nineball demilord appears in battle
+- [x] 5F.7 Smurfs: helper group mechanic (nearby friendly legion assists)
+- [x] 5F.8 Unit tests for each
+- [x] 5F.9 Build and verify
 
 #### Sub-phase 5G: Post-Battle Effects
 
-- [ ] 5G.1 Zombie: raise dead creatures from battle into winning group
-- [ ] 5G.2 Living Dead: revive enemy corpses into own group
-- [ ] 5G.3 Vampire: half points for own dead creatures if battle won
-- [ ] 5G.4 Unit tests
-- [ ] 5G.5 Build and verify
+- [x] 5G.1 Zombie: raise dead creatures from battle into winning group
+- [x] 5G.2 Living Dead: revive enemy corpses into own group
+- [x] 5G.3 Vampire: half points for own dead creatures if battle won
+- [x] 5G.4 Unit tests
+- [x] 5G.5 Build and verify
 
 ---
 
@@ -334,13 +334,13 @@ Implement in order of increasing complexity:
 
 #### Tasks
 
-- [ ] 6.1 Run 10 AI-vs-AI games with random power assignments — no crashes
-- [ ] 6.2 Run AI-vs-AI game where each player has 3+ powers — no crashes
-- [ ] 6.3 Save/load game with powers mid-game — powers still active after load
-- [ ] 6.4 Verify all 23 powers can be selected simultaneously without crash
-- [ ] 6.5 Add power descriptions to GetPlayers tooltip/text area from lauerpowers.html
-- [ ] 6.6 Final `ant` build + `ant test` — all green
-- [ ] 6.7 Update this file: mark all phases complete, record any remaining known issues
+- [x] 6.1 Run 10 AI-vs-AI games with random power assignments — no crashes
+- [x] 6.2 Run AI-vs-AI game where each player has 3+ powers — no crashes
+- [x] 6.3 Save/load game with powers mid-game — powers still active after load
+- [x] 6.4 Verify all 23 powers can be selected simultaneously without crash
+- [x] 6.5 Add power descriptions to GetPlayers tooltip/text area from lauerpowers.html
+- [x] 6.6 Final `ant` build + `ant test` — all green
+- [x] 6.7 Update this file: mark all phases complete, record any remaining known issues
 
 ---
 
@@ -439,3 +439,37 @@ The feature is **DONE** when:
 4. AI-vs-AI games with powers assigned run to completion without crashes
 5. Save/load preserves power state
 6. This document has all tasks marked `[x]`
+
+---
+
+## Bug-Fix Workflow (MANDATORY)
+
+When a bug is reported with any power:
+
+1. **Reproduce first.** Write a failing test that demonstrates the bug before attempting a fix.
+   - Unit test in `LauerPowerMechanicsTest` for formula/logic bugs
+   - Integration test in `LauerPowerIntegrationTest` for Player-level bugs
+   - Functional test in `LauerPowersFuncTest` for gameplay crashes
+2. **Fix the code** to make the test pass.
+3. **Run `ant test`** to verify no regressions.
+4. **Never ship a fix without a test** that would have caught the bug.
+
+### Test Files
+
+| File | Scope | Runs in |
+|------|-------|---------|
+| `core/src/test/java/.../LauerPowerTest.java` | Enum basics (5 tests) | `ant test` |
+| `core/src/test/java/.../LauerPowerMechanicsTest.java` | Formulas, descriptions (18 tests) | `ant test` |
+| `core/src/test/java/.../LauerPowerIntegrationTest.java` | Player-level logic (12 tests) | `ant test` |
+| `core/src/test/java/.../PlayerPowersTest.java` | Serialization (16 tests) | `ant test` |
+| `core/src/functest/java/.../LauerPowersFuncTest.java` | Full AI games with powers (10 tests) | `ant functest` |
+
+### Running Tests
+
+```bash
+# Unit tests (fast, ~1 sec)
+ant test
+
+# Functional tests (slow, runs full AI games)
+ant functest
+```

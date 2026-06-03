@@ -31,6 +31,8 @@ import net.sf.colossus.game.MovementClientSide;
 import net.sf.colossus.game.Phase;
 import net.sf.colossus.game.Player;
 import net.sf.colossus.game.PlayerColor;
+import net.sf.colossus.game.PlayerPowers;
+import net.sf.colossus.game.LauerPower;
 import net.sf.colossus.game.Proposal;
 import net.sf.colossus.game.SummonInfo;
 import net.sf.colossus.game.actions.Recruitment;
@@ -1211,12 +1213,37 @@ public final class Client implements IClient, IOracle, IVariant,
     public void tellMovementRoll(int roll, String reason)
     {
         game.setMovementRoll(roll);
-        gui.actOnTellMovementRoll(roll, reason);
 
-        // kickMoves() now called by kickPhase(), because the kickXXXX
-        // are now done separately, not implied in the setupXXXXX
-        // (or in this case, tellMovementRoll()) any more.
-        // kickMoves();
+        // Parse Mulligan/UDC dual dice from reason and store on game + player
+        if (reason != null && reason.contains("Mulligan: "))
+        {
+            try
+            {
+                int idx = reason.indexOf("Mulligan: ") + 10;
+                int andIdx = reason.indexOf(" and ", idx);
+                int endIdx = reason.indexOf(")", andIdx);
+                int die1 = Integer.parseInt(
+                    reason.substring(idx, andIdx).trim());
+                int die2 = Integer.parseInt(
+                    reason.substring(andIdx + 5, endIdx).trim());
+                game.setMulliganDice(die1, die2);
+                Player active = getActivePlayer();
+                if (active != null)
+                {
+                    active.setMulliganRolls(die1, die2);
+                }
+            }
+            catch (Exception e)
+            {
+                // Parse failure - ignore
+            }
+        }
+        else
+        {
+            game.setMulliganDice(0, 0);
+        }
+
+        gui.actOnTellMovementRoll(roll, reason);
     }
 
     public void tellWhatsHappening(String message)
@@ -1293,6 +1320,19 @@ public final class Client implements IClient, IOracle, IVariant,
                 this.owningPlayer = foundPlayer;
             }
             playersNotInitialized = false;
+
+            // Initialize Lauer Powers from synced options
+            int idx = 0;
+            for (Player p : game.getPlayers())
+            {
+                String powersStr = options.getStringOption(
+                    Options.playerPowers + idx);
+                if (powersStr != null && !powersStr.isEmpty())
+                {
+                    p.setPowers(PlayerPowers.deserialize(powersStr));
+                }
+                idx++;
+            }
         }
         game.updatePlayerInfo(infoStrings);
         gui.updateStatusScreen();
@@ -4004,14 +4044,32 @@ public final class Client implements IClient, IOracle, IVariant,
     public Set<MasterHex> listTeleportMoves(Legion legion)
     {
         MasterHex hex = legion.getCurrentHex();
-        return movement.listTeleportMoves(legion, hex, game.getMovementRoll());
+        Set<MasterHex> result = movement.listTeleportMoves(legion, hex,
+            game.getMovementRoll());
+        // Mulligan/UDC: also include moves for the other die value
+        if (game.getMulliganDie1() > 0)
+        {
+            int otherRoll = (game.getMovementRoll() == game.getMulliganDie1())
+                ? game.getMulliganDie2() : game.getMulliganDie1();
+            result.addAll(movement.listTeleportMoves(legion, hex, otherRoll));
+        }
+        return result;
     }
 
     /** Return a set of hexLabels. */
     public Set<MasterHex> listNormalMoves(Legion legion)
     {
-        return movement.listNormalMoves(legion, legion.getCurrentHex(),
-            game.getMovementRoll());
+        Set<MasterHex> result = movement.listNormalMoves(legion,
+            legion.getCurrentHex(), game.getMovementRoll());
+        // Mulligan/UDC: also include moves for the other die value
+        if (game.getMulliganDie1() > 0)
+        {
+            int otherRoll = (game.getMovementRoll() == game.getMulliganDie1())
+                ? game.getMulliganDie2() : game.getMulliganDie1();
+            result.addAll(movement.listNormalMoves(legion,
+                legion.getCurrentHex(), otherRoll));
+        }
+        return result;
     }
 
     /**

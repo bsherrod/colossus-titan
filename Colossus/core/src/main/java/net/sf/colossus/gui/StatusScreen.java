@@ -24,6 +24,7 @@ import net.sf.colossus.client.PlayerClientSide;
 import net.sf.colossus.common.Constants;
 import net.sf.colossus.common.IOptions;
 import net.sf.colossus.common.Options;
+import net.sf.colossus.game.LauerPower;
 import net.sf.colossus.game.Player;
 import net.sf.colossus.guiutil.KDialog;
 import net.sf.colossus.guiutil.SaveWindow;
@@ -389,6 +390,24 @@ final class StatusScreen extends KDialog
             pointsLabel[i].setText("" + player.getTotalPointValue());
             titanLabel[i].setText("" + player.getTitanPower());
             scoreLabel[i].setText("" + player.getScore());
+
+            // Show powers as tooltip on player name (hover to see)
+            if (!player.getPowers().isEmpty())
+            {
+                StringBuilder powTip = new StringBuilder("<html>Powers:<br>");
+                for (LauerPower p : player.getPowers().getPowers())
+                {
+                    powTip.append("• <b>").append(p.getDisplayName())
+                        .append("</b>: ").append(p.getFullDescription())
+                        .append("<br><br>");
+                }
+                powTip.append("</html>");
+                nameLabel[i].setToolTipText(powTip.toString());
+            }
+            else
+            {
+                nameLabel[i].setToolTipText(null);
+            }
 
             i++;
         }

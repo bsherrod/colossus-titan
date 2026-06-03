@@ -6,6 +6,8 @@ import java.util.logging.Logger;
 import net.sf.colossus.game.Battle;
 import net.sf.colossus.game.Creature;
 import net.sf.colossus.game.Game;
+import net.sf.colossus.game.LauerPower;
+import net.sf.colossus.game.Player;
 import net.sf.colossus.variant.BattleHex;
 import net.sf.colossus.variant.HazardHexside;
 import net.sf.colossus.variant.HazardTerrain;
@@ -114,6 +116,27 @@ public class BattleStrikeServerSide
             /* END TODO: remove TEST TEST TEST TEST TEST */
         }
 
+        // Lauer Powers: strike dice bonuses
+        Player strikerPlayer = striker.getPlayer();
+        if (strikerPlayer != null)
+        {
+            // Berserker: +floor(strength/4) to ALL strikes
+            if (strikerPlayer.hasPower(LauerPower.BERSERKER))
+            {
+                dice += striker.getPower() / 4;
+            }
+            // Knight: +floor(strength/2) to MELEE strikes only
+            if (!rangestrike && strikerPlayer.hasPower(LauerPower.KNIGHT))
+            {
+                dice += striker.getPower() / 2;
+            }
+            // Marines: +floor(strength/4) to MELEE strikes
+            if (!rangestrike && strikerPlayer.hasPower(LauerPower.MARINES))
+            {
+                dice += striker.getPower() / 4;
+            }
+        }
+
         return dice;
     }
 
@@ -206,6 +229,14 @@ public class BattleStrikeServerSide
         }
         else if (!striker.useMagicMissile())
         {
+            // Archer power: no range penalties at all
+            Player sp = striker.getPlayer();
+            if (sp != null && sp.hasPower(LauerPower.ARCHER))
+            {
+                // Skip all range/bramble penalties
+            }
+            else
+            {
             // Range penalty
             /* Range 4 means a penalty of 1 to the attacker.
              * I hereby extend this so that range 5 means a penalty of 2,
@@ -268,6 +299,7 @@ public class BattleStrikeServerSide
             {
                 attackerSkill--;
             }
+            } // end else (non-Archer range penalties)
         }
 
         return attackerSkill;

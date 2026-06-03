@@ -222,6 +222,29 @@ public class Creature
         return getType().getPower();
     }
 
+    /**
+     * Effective hit points for defensive purposes.
+     * Includes Armourer power bonus: non-flying +floor(2*str/3),
+     * flying +floor(str/3).
+     */
+    public int getDefensivePower()
+    {
+        int power = getPower();
+        Player player = getPlayer();
+        if (player != null && player.hasPower(LauerPower.ARMOURER))
+        {
+            if (getType().isFlier())
+            {
+                power += power / 3;
+            }
+            else
+            {
+                power += (2 * power) / 3;
+            }
+        }
+        return power;
+    }
+
     public int getTitanPower()
     {
         Player player = getPlayer();
@@ -305,6 +328,12 @@ public class Creature
 
     public boolean isFlier()
     {
+        // Avian power: ALL creatures fly
+        Player player = getPlayer();
+        if (player != null && player.hasPower(LauerPower.AVIAN))
+        {
+            return true;
+        }
         return getType().isFlier();
     }
 
@@ -325,6 +354,18 @@ public class Creature
 
     public boolean isRangestriker()
     {
+        // Archer power: ALL creatures can rangestrike
+        Player player = getPlayer();
+        if (player != null && player.hasPower(LauerPower.ARCHER))
+        {
+            return true;
+        }
+        // Archmage power: Titan rangestrikes as warlock
+        if (player != null && player.hasPower(LauerPower.ARCHMAGE)
+            && isTitan())
+        {
+            return true;
+        }
         return getType().isRangestriker();
     }
 

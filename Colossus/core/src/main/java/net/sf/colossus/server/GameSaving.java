@@ -315,6 +315,7 @@ public class GameSaving
             el.setAttribute("mulligansLeft", "" + player.getMulligansLeft());
             el.setAttribute("colorsElim", player.getPlayersElim());
             el.setAttribute("summoned", "" + player.hasSummoned());
+            el.setAttribute("powers", player.getPowers().serialize());
 
             Collection<LegionServerSide> legions = player.getLegions();
             Iterator<LegionServerSide> it2 = legions.iterator();

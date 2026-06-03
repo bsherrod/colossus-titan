@@ -16,7 +16,9 @@ import net.sf.colossus.common.Options;
 import net.sf.colossus.game.BattleCritter;
 import net.sf.colossus.game.Creature;
 import net.sf.colossus.game.Game;
+import net.sf.colossus.game.LauerPower;
 import net.sf.colossus.game.Legion;
+import net.sf.colossus.game.Player;
 import net.sf.colossus.guiutil.DebugMethods;
 import net.sf.colossus.variant.BattleHex;
 import net.sf.colossus.variant.CreatureType;
@@ -163,6 +165,18 @@ public class CreatureServerSide extends Creature implements BattleCritter
             }
         }
         strike2(target, dice, strikeNumber);
+
+        // Berserker power: AI auto-berserks when creature has 1 hit remaining
+        // (strikes twice with bonus, then dies)
+        if (getPlayer().hasPower(LauerPower.BERSERKER)
+            && (getPower() - getHits()) <= 1 && !isDead())
+        {
+            // Second berserk strike
+            strike2(target, dice, strikeNumber);
+            // Creature dies after berserking
+            setHits(getPower());
+            LOGGER.info(getDescription() + " went berserk and died");
+        }
     }
 
     /** Side effects. */
@@ -383,6 +397,42 @@ public class CreatureServerSide extends Creature implements BattleCritter
             // Roll the dice:
             damage = game.getBattleStrike().rollDice(this, target, dice,
                 strikeNumber, rolls, randomized);
+        }
+
+        // Lauer Powers: combat dice modifiers (reroll/alternative damage)
+        Player attackerPlayer = getPlayer();
+        if (attackerPlayer != null && damage >= 0)
+        {
+            // Yahtzee: reroll, take second result (AI: take max)
+            // Prophetess: roll twice, take either (AI: take max)
+            if (attackerPlayer.hasPower(LauerPower.YAHTZEE)
+                || attackerPlayer.hasPower(LauerPower.PROPHETESS))
+            {
+                int altDamage = game.getBattleStrike().rollDice(this, target,
+                    dice, strikeNumber, new java.util.ArrayList<String>(),
+                    true);
+                if (altDamage > damage)
+                {
+                    damage = altDamage;
+                }
+            }
+            // Mulligan: may instead do ceil(average hits)
+            if (attackerPlayer.hasPower(LauerPower.MULLIGAN))
+            {
+                // Average hits = dice * (7 - strikeNumber) / 6
+                int avgDamage = (dice * (7 - strikeNumber) + 5) / 6;
+                if (avgDamage > damage)
+                {
+                    damage = avgDamage;
+                }
+            }
+        }
+
+        // Smurfs power: strikes do only ceil(2/3) damage
+        if (attackerPlayer != null
+            && attackerPlayer.hasPower(LauerPower.SMURFS) && damage > 0)
+        {
+            damage = (damage * 2 + 2) / 3; // ceil(2/3 * damage)
         }
 
         int carryDamage = target.adjustHits(damage);

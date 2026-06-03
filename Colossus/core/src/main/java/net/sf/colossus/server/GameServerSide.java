@@ -16,6 +16,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.jdom.DataConversionException;
+import org.jdom.Attribute;
 import org.jdom.Element;
 
 import net.sf.colossus.client.Client;
@@ -37,6 +38,8 @@ import net.sf.colossus.game.MovementServerSide;
 import net.sf.colossus.game.Phase;
 import net.sf.colossus.game.Player;
 import net.sf.colossus.game.PlayerColor;
+import net.sf.colossus.game.PlayerPowers;
+import net.sf.colossus.game.LauerPower;
 import net.sf.colossus.game.Proposal;
 import net.sf.colossus.game.actions.AddCreatureAction;
 import net.sf.colossus.game.actions.EditAddCreature;
@@ -565,6 +568,21 @@ public class GameServerSide extends Game
             }
         }
 
+        // Initialize Lauer Powers from options
+        int playerIdx = 0;
+        for (Player player : getPlayers())
+        {
+            String powersStr = options.getStringOption(
+                Options.playerPowers + playerIdx);
+            if (powersStr != null && !powersStr.isEmpty())
+            {
+                player.setPowers(PlayerPowers.deserialize(powersStr));
+                LOGGER.info("Player " + player.getName()
+                    + " powers: " + powersStr);
+            }
+            playerIdx++;
+        }
+
         // No longer need the player name and type options
         // - except if needed for next stresstest round.
         if (!Options.isStresstest())
@@ -751,6 +769,15 @@ public class GameServerSide extends Game
         while (en.hasMoreElements())
         {
             String name = en.nextElement();
+            // Skip empty player powers (empty string causes protocol error)
+            if (name.startsWith(Options.playerPowers))
+            {
+                String val = options.getStringOption(name);
+                if (val == null || val.isEmpty())
+                {
+                    continue;
+                }
+            }
             String value = options.getStringOption(name);
 
             server.allSyncOption(name, value);
@@ -950,6 +977,78 @@ public class GameServerSide extends Game
         {
             PlayerServerSide player = (PlayerServerSide)p;
             placeInitialLegion(player, player.getFirstMarker());
+
+            // Lauer Powers: add extra starting creatures
+            if (player.hasPower(LauerPower.AVIAN))
+            {
+                LegionServerSide legion =
+                    (LegionServerSide)player.getLegions().get(0);
+                CreatureType gargoyle = getVariant().getCreatureByName(
+                    "Gargoyle");
+                for (int g = 0; g < 2; g++)
+                {
+                    if (legion.addCreature(gargoyle, false))
+                    {
+                        getCaretaker().takeOne(gargoyle);
+                    }
+                }
+            }
+            if (player.hasPower(LauerPower.LORD_OF_THE_TREES))
+            {
+                LegionServerSide legion =
+                    (LegionServerSide)player.getLegions().get(0);
+                CreatureType centaur = getVariant().getCreatureByName(
+                    "Centaur");
+                for (int c = 0; c < 2; c++)
+                {
+                    if (legion.addCreature(centaur, false))
+                    {
+                        getCaretaker().takeOne(centaur);
+                    }
+                }
+            }
+            if (player.hasPower(LauerPower.ZOMBIE))
+            {
+                // Start with 2 each of these creatures in the dead pile
+                String[] zombieDeadCreatures = {"Lion", "Troll", "Cyclops",
+                    "Ranger", "Gorgon", "Warbear", "Minotaur"};
+                for (String name : zombieDeadCreatures)
+                {
+                    CreatureType ct = getVariant().getCreatureByName(name);
+                    if (ct != null)
+                    {
+                        int currentDead = getCaretaker().getDeadCount(ct);
+                        getCaretaker().setDeadCount(ct, currentDead + 2);
+                    }
+                }
+            }
+
+            // Amoeba power: create 2 additional legions of 4 on the tower
+            if (player.hasPower(LauerPower.AMOEBA))
+            {
+                MasterHex tower = player.getStartingTower();
+                CreatureType[] startCre = TerrainRecruitLoader
+                    .getStartingCreatures(tower);
+                for (int leg = 0; leg < 2; leg++)
+                {
+                    String markerId = player.getFirstMarker();
+                    if (markerId != null)
+                    {
+                        player.selectMarkerId(markerId);
+                        LegionServerSide extraLegion =
+                            new LegionServerSide(markerId, null, tower,
+                                tower, player, this,
+                                startCre[0], startCre[1],
+                                startCre[2], startCre[0]);
+                        player.addLegion(extraLegion);
+                        for (Creature c : extraLegion.getCreatures())
+                        {
+                            getCaretaker().takeOne(c.getType());
+                        }
+                    }
+                }
+            }
+
             server.allRevealLegion(player.getLegions().get(0),
                 Constants.reasonInitial);
             server
@@ -1099,9 +1198,81 @@ public class GameServerSide extends Game
     {
         Player player = getActivePlayer();
         int roll = ((PlayerServerSide)player).rollMovement(reason);
+        int originalRoll = roll;
+        // Smurfs power: all groups move one less than rolled (minimum 1)
+        if (player.hasPower(LauerPower.SMURFS) && roll > 1)
+        {
+            roll = roll - 1;
+            originalRoll = roll; // Smurfs applies before UDC
+        }
+        // Upside-Down Cake: may use 7 minus rolled number
+        if (player.hasPower(LauerPower.UPSIDE_DOWN_CAKE))
+        {
+            int alt = 7 - roll;
+            player.setMulliganRolls(roll, alt); // reuse field for both dice
+            if (alt > roll)
+            {
+                roll = alt;
+            }
+        }
+        // Mulligan: roll 2 dice, each group may use either.
+        // If equal, reroll one. Store both for per-group choice.
+        // AI uses the higher of the two.
+        if (player.hasPower(LauerPower.MULLIGAN))
+        {
+            int secondRoll = ((PlayerServerSide)player).makeMovementRoll();
+            // If equal, reroll the second die until different
+            while (secondRoll == roll)
+            {
+                secondRoll = ((PlayerServerSide)player).makeMovementRoll();
+            }
+            // Store both rolls for per-group choice (future UI)
+            player.setMulliganRolls(roll, secondRoll);
+            // AI picks the higher
+            if (secondRoll > roll)
+            {
+                roll = secondRoll;
+            }
+        }
+        // Ninja: may reroll movement once (AI rerolls if roll <= 3)
+        if (player.hasPower(LauerPower.NINJA) && roll <= 3)
+        {
+            int reroll = ((PlayerServerSide)player).makeMovementRoll();
+            roll = reroll; // must take the reroll result
+        }
         // update in game.Game:
         setMovementRoll(roll);
-        getServer().allTellMovementRoll(roll, reason);
+        // Store both Mulligan dice on the game object for movement validation
+        if (player.hasPower(LauerPower.MULLIGAN) && player.getMulliganRoll1() > 0)
+        {
+            setMulliganDice(player.getMulliganRoll1(), player.getMulliganRoll2());
+        }
+        else if (player.hasPower(LauerPower.UPSIDE_DOWN_CAKE) && player.getMulliganRoll1() > 0)
+        {
+            setMulliganDice(player.getMulliganRoll1(), player.getMulliganRoll2());
+        }
+        else
+        {
+            setMulliganDice(0, 0);
+        }
+        // For Mulligan/UDC, include both dice in the reason so client can display them
+        if (player.hasPower(LauerPower.MULLIGAN) && player.getMulliganRoll1() > 0)
+        {
+            getServer().allTellMovementRoll(roll, reason
+                + " (Mulligan: " + player.getMulliganRoll1()
+                + " and " + player.getMulliganRoll2() + ")");
+        }
+        else if (player.hasPower(LauerPower.UPSIDE_DOWN_CAKE)
+            && player.getMulliganRoll1() > 0)
+        {
+            getServer().allTellMovementRoll(roll, reason
+                + " (Mulligan: " + player.getMulliganRoll1()
+                + " and " + player.getMulliganRoll2() + ")");
+        }
+        else
+        {
+            getServer().allTellMovementRoll(roll, reason);
+        }
         movementRollEvent(player, roll);
     }
 
@@ -1790,6 +1961,17 @@ public class GameServerSide extends Game
                 }
                 player.setPlayersElim(playersElim);
 
+                // Load Lauer Powers (optional attribute for backward compat)
+                Attribute powersAttr = pla.getAttribute("powers");
+                if (powersAttr != null)
+                {
+                    String powersStr = powersAttr.getValue();
+                    if (powersStr != null && !powersStr.isEmpty())
+                    {
+                        player.setPowers(PlayerPowers.deserialize(powersStr));
+                    }
+                }
+
                 List<Element> legionElements = pla.getChildren("Legion");
                 Iterator<Element> it2 = legionElements.iterator();
                 while (it2.hasNext())
@@ -2100,9 +2282,27 @@ public class GameServerSide extends Game
         {
             for (CreatureType lesser : recruiters)
             {
-                if ((TerrainRecruitLoader.numberOfRecruiterNeeded(lesser,
-                    creature, terrain, hex) <= ((LegionServerSide)legion)
-                    .numCreature(lesser))
+                int needed = TerrainRecruitLoader.numberOfRecruiterNeeded(
+                    lesser, creature, terrain, hex);
+                // Administrator: need one fewer creature for upward recruiting
+                if (legion.getPlayer().hasPower(LauerPower.ADMINISTRATOR)
+                    && needed > 1)
+                {
+                    needed = needed - 1;
+                }
+                int available = ((LegionServerSide)legion)
+                    .numCreature(lesser);
+                // Lord of the Trees: +1 phantom for warbear/minotaur/troll/cyclops
+                if (legion.getPlayer().hasPower(LauerPower.LORD_OF_THE_TREES))
+                {
+                    String name = lesser.getName();
+                    if (name.equals("Warbear") || name.equals("Minotaur")
+                        || name.equals("Troll") || name.equals("Cyclops"))
+                    {
+                        available = available + 1;
+                    }
+                }
+                if ((needed <= available)
                     && (recruits.indexOf(creature) == -1))
                 {
                     recruits.add(creature);
@@ -2120,6 +2320,77 @@ public class GameServerSide extends Game
                 it.remove();
             }
         }
+
+        // The Folks: always recruit weakest creature in terrain,
+        // even from dead pile (bypasses caretaker availability)
+        if (legion.getPlayer().hasPower(LauerPower.THE_FOLKS)
+            && !tempRecruits.isEmpty())
+        {
+            // tempRecruits is ordered weakest first
+            CreatureType weakest = tempRecruits.get(0);
+            if (!recruits.contains(weakest))
+            {
+                recruits.add(0, weakest);
+            }
+        }
+
+        // Living Dead: recruit any terrain creature from dead pile
+        // (bypasses caretaker availability for all terrain creatures)
+        if (legion.getPlayer().hasPower(LauerPower.LIVING_DEAD))
+        {
+            for (CreatureType creature : tempRecruits)
+            {
+                if (!recruits.contains(creature)
+                    && getCaretaker().getDeadCount(creature) > 0)
+                {
+                    recruits.add(creature);
+                }
+            }
+        }
+
+        // Prophetess: any creature in legion counts as any recruiter
+        // (effectively: all terrain creatures are recruitable if legion
+        // has at least one creature and target is available)
+        if (legion.getPlayer().hasPower(LauerPower.PROPHETESS)
+            && legion.getHeight() > 0)
+        {
+            for (CreatureType creature : tempRecruits)
+            {
+                if (!recruits.contains(creature)
+                    && getCaretaker().getAvailableCount(creature) > 0)
+                {
+                    recruits.add(creature);
+                }
+            }
+        }
+
+        // Zombie: recruit any creature from dead pile with any creature
+        // worth >= target's points (handled separately in doRecruit)
+
+        // Zombie: any dead creature recruitable if legion has a creature
+        // worth >= that creature's point value
+        if (legion.getPlayer().hasPower(LauerPower.ZOMBIE))
+        {
+            int maxPointsInLegion = 0;
+            for (Creature c : ((LegionServerSide)legion).getCreatures())
+            {
+                int pv = c.getType().getPointValue();
+                if (pv > maxPointsInLegion)
+                {
+                    maxPointsInLegion = pv;
+                }
+            }
+            for (CreatureType ct : getVariant().getCreatureTypes())
+            {
+                if (!ct.isLord() && !recruits.contains(ct)
+                    && getCaretaker().getDeadCount(ct) > 0
+                    && ct.getPointValue() <= maxPointsInLegion)
+                {
+                    recruits.add(ct);
+                }
+            }
+        }
+
         return recruits;
     }
 
@@ -2616,11 +2887,27 @@ public class GameServerSide extends Game
         }
 
         // Verify that the move is legal.
+        // For Mulligan/UDC: determine which die value makes this move valid
+        int effectiveRoll = roll;
         if (teleport)
         {
             if ((reason = movementSS.isValidTeleportMove(legion, hex, roll)) != null)
             {
-                return reason;
+                // Try alt roll
+                if (getMulliganDie1() > 0)
+                {
+                    int altRoll = (roll == getMulliganDie1())
+                        ? getMulliganDie2() : getMulliganDie1();
+                    if (movementSS.isValidTeleportMove(legion, hex, altRoll) == null)
+                    {
+                        effectiveRoll = altRoll;
+                        reason = null;
+                    }
+                }
+                if (reason != null)
+                {
+                    return reason;
+                }
             }
         }
         else
@@ -2628,16 +2915,57 @@ public class GameServerSide extends Game
             if ((reason = movementSS.isValidNormalMove(legion, hex, player,
                 roll)) != null)
             {
-                return reason;
+                // Try alt roll
+                if (getMulliganDie1() > 0)
+                {
+                    int altRoll = (roll == getMulliganDie1())
+                        ? getMulliganDie2() : getMulliganDie1();
+                    if (movementSS.isValidNormalMove(legion, hex, player,
+                        altRoll) == null)
+                    {
+                        effectiveRoll = altRoll;
+                        reason = null;
+                    }
+                }
+                // Mulligan turn 1: moves may be teleports
+                if (reason != null && player.hasPower(LauerPower.MULLIGAN)
+                    && getTurnNumber() == 1)
+                {
+                    if (movementSS.isValidTeleportMove(legion, hex, roll) == null
+                        || (getMulliganDie1() > 0
+                            && movementSS.isValidTeleportMove(legion, hex,
+                                (roll == getMulliganDie1())
+                                    ? getMulliganDie2()
+                                    : getMulliganDie1()) == null))
+                    {
+                        teleport = true;
+                        reason = null;
+                    }
+                }
+                if (reason != null)
+                {
+                    return reason;
+                }
             }
         }
 
+        // Temporarily set the game roll to the effective value for entry-side
+        int savedRoll = getMovementRoll();
+        setMovementRoll(effectiveRoll);
+
         // Verify that the entry side is legal.
-        if ((reason = movementSS.isValidEntrySide(legion, hex, teleport,
+        // Teleport moves always enter from BOTTOM
+        if (teleport)
+        {
+            entrySide = EntrySide.BOTTOM;
+        }
+        else if ((reason = movementSS.isValidEntrySide(legion, hex, teleport,
             entrySide)) != null)
         {
+            setMovementRoll(savedRoll);
             return reason;
         }
+        setMovementRoll(savedRoll);
 
         // If this is a tower hex, the only entry side is the bottom.
         if (hex.getTerrain().hasStartList()
@@ -2673,6 +3001,38 @@ public class GameServerSide extends Game
         }
         ((LegionServerSide)legion).moveToHex(hex, entrySide, teleport,
             teleportingLord);
+
+        // Vampire overrun: if group value >= 2.5x enemy on same hex,
+        // destroy enemy without battle
+        if (player.hasPower(LauerPower.VAMPIRE))
+        {
+            for (Player other : getPlayers())
+            {
+                if (other.equals(player) || other.isDead())
+                {
+                    continue;
+                }
+                for (Legion enemyLeg : new ArrayList<Legion>(
+                    other.getLegions()))
+                {
+                    if (enemyLeg.getCurrentHex().equals(hex))
+                    {
+                        int myValue = legion.getPointValue();
+                        int enemyValue = enemyLeg.getPointValue();
+                        if (myValue >= enemyValue * 2.5)
+                        {
+                            // Overrun: destroy enemy legion
+                            ((LegionServerSide)enemyLeg).remove();
+                            LOGGER.info("Vampire overrun: " + legion
+                                .getMarkerId() + " (" + myValue
+                                + ") overruns " + enemyLeg.getMarkerId()
+                                + " (" + enemyValue + ")");
+                        }
+                    }
+                }
+            }
+        }
+
         legionMoveEvent(legion, hex, entrySide, teleport, teleportingLord);
         return null;
     }
@@ -2716,7 +3076,8 @@ public class GameServerSide extends Game
             server.oneRevealLegion(defender, attacker.getPlayer(),
                 Constants.reasonEngaged);
 
-            if (defender.canFlee())
+            if (defender.canFlee()
+                && !attacker.getPlayer().hasPower(LauerPower.VAMPIRE))
             {
                 // Fleeing gives half points and denies the
                 // attacker the chance to summon an angel.
@@ -2927,11 +3288,44 @@ public class GameServerSide extends Game
 
         // If this was the titan stack, its owner dies and gives half
         // points to the victor.
-        if (((LegionServerSide)loser).hasTitan())
+        // Amoeba power: player is NOT dead until ALL legions are destroyed.
+        // Vampire power: player has two Titans, dies only when BOTH are lost.
+        if (((LegionServerSide)loser).hasTitan()
+            && !losingPlayer.hasPower(LauerPower.AMOEBA)
+            && !losingPlayer.hasPower(LauerPower.VAMPIRE))
         {
             // first remove dead legion, then the rest. Cannot do the
             // loser.remove outside/before the if (or would need to store
             // the hasTitan information as extra boolean)
+            ((LegionServerSide)loser).remove();
+            ((PlayerServerSide)losingPlayer).die(winner.getPlayer());
+            checkForVictory();
+        }
+        else if (((LegionServerSide)loser).hasTitan()
+            && losingPlayer.hasPower(LauerPower.VAMPIRE))
+        {
+            // Vampire: remove this Titan legion, then check if any
+            // other legion still has a Titan
+            ((LegionServerSide)loser).remove();
+            boolean hasAnotherTitan = false;
+            for (Legion leg : losingPlayer.getLegions())
+            {
+                if (((LegionServerSide)leg).hasTitan())
+                {
+                    hasAnotherTitan = true;
+                    break;
+                }
+            }
+            if (!hasAnotherTitan)
+            {
+                ((PlayerServerSide)losingPlayer).die(winner.getPlayer());
+                checkForVictory();
+            }
+        }
+        else if (losingPlayer.hasPower(LauerPower.AMOEBA)
+            && losingPlayer.getNumLegions() <= 1)
+        {
+            // Amoeba's last legion destroyed — now they die
             ((LegionServerSide)loser).remove();
             ((PlayerServerSide)losingPlayer).die(winner.getPlayer());
             checkForVictory();

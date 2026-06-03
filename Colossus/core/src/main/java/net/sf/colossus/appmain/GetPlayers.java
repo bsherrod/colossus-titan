@@ -24,16 +24,19 @@ import java.util.logging.Logger;
 
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JEditorPane;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
+import javax.swing.JTextArea;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.border.TitledBorder;
 import javax.swing.text.Document;
@@ -44,7 +47,9 @@ import net.sf.colossus.common.WhatNextManager;
 import net.sf.colossus.common.WhatNextManager.WhatToDoNext;
 import net.sf.colossus.game.Dice;
 import net.sf.colossus.gui.PickIntValue;
+import net.sf.colossus.gui.PowerListPanel;
 import net.sf.colossus.gui.ShowReadme;
+import net.sf.colossus.game.LauerPower;
 import net.sf.colossus.guiutil.KFrame;
 import net.sf.colossus.guiutil.SaveWindow;
 import net.sf.colossus.server.VariantSupport;
@@ -85,6 +90,7 @@ public final class GetPlayers extends KFrame
     private JEditorPane readme = new JEditorPane();
     private JScrollPane readmeScrollPane;
     private final JTabbedPane tabbedPane;
+    private PowerListPanel[] powerListPanels;
 
     private final JComboBox<String> variantBox;
     private final Vector<String> variantVector;
@@ -450,6 +456,86 @@ public final class GetPlayers extends KFrame
                 }
             }
         });
+
+        // ================== Powers tab =====================
+        JPanel powersPane = new JPanel(new BorderLayout());
+        powersPane.setBorder(new TitledBorder("Lauer Powers"));
+
+        JPanel powersPlayersPanel = new JPanel(new GridLayout(0, 1));
+        final PowerListPanel[] powerPanels =
+            new PowerListPanel[Constants.MAX_MAX_PLAYERS];
+
+        final JTextArea powerDescArea = new JTextArea(3, 40);
+        powerDescArea.setEditable(false);
+        powerDescArea.setLineWrap(true);
+        powerDescArea.setWrapStyleWord(true);
+
+        for (int i = 0; i < Constants.MAX_MAX_PLAYERS; i++)
+        {
+            JPanel playerPanel = new JPanel(new BorderLayout());
+            playerPanel.setBorder(new TitledBorder("Player " + (i + 1)));
+
+            // Top row: dropdown + Add/Remove buttons
+            JPanel addRow = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            final JComboBox<String> powerCombo = new JComboBox<String>();
+            for (LauerPower power : LauerPower.getAll())
+            {
+                powerCombo.addItem(power.getLabel());
+            }
+            powerCombo.addActionListener(new ActionListener()
+            {
+                public void actionPerformed(ActionEvent e)
+                {
+                    int sel = powerCombo.getSelectedIndex();
+                    if (sel >= 0)
+                    {
+                        LauerPower p = LauerPower.getAll()[sel];
+                        powerDescArea.setText(p.getDisplayName() + ": "
+                            + p.getFullDescription());
+                    }
+                }
+            });
+            addRow.add(powerCombo);
+
+            final PowerListPanel plp = new PowerListPanel(3);
+            powerPanels[i] = plp;
+
+            JButton addBtn = new JButton("Add");
+            final JComboBox<String> comboRef = powerCombo;
+            addBtn.addActionListener(new ActionListener()
+            {
+                public void actionPerformed(ActionEvent e)
+                {
+                    int sel = comboRef.getSelectedIndex();
+                    if (sel >= 0)
+                    {
+                        plp.addPower(LauerPower.getAll()[sel].name());
+                    }
+                }
+            });
+            addRow.add(addBtn);
+
+            JButton removeBtn = new JButton("Remove");
+            removeBtn.addActionListener(new ActionListener()
+            {
+                public void actionPerformed(ActionEvent e)
+                {
+                    plp.removeSelected();
+                }
+            });
+            addRow.add(removeBtn);
+
+            playerPanel.add(addRow, BorderLayout.NORTH);
+            playerPanel.add(plp, BorderLayout.CENTER);
+            powersPlayersPanel.add(playerPanel);
+        }
+
+        JScrollPane powersScrollPane = new JScrollPane(powersPlayersPanel);
+        powersPane.add(new JScrollPane(powerDescArea), BorderLayout.NORTH);
+        powersPane.add(powersScrollPane, BorderLayout.CENTER);
+        tabbedPane.addTab("Powers", powersPane);
+
+        this.powerListPanels = powerPanels;
 
         // ================== Variant README tab =====================
         // if we don't pass the JEditorPane ("readme"),
@@ -924,6 +1010,20 @@ public final class GetPlayers extends KFrame
 
             String type = types.get(i);
             options.setOption(Options.playerType + i, type);
+        }
+
+        // Save selected powers for each player
+        for (int i = 0; i < Constants.MAX_MAX_PLAYERS; i++)
+        {
+            String powerStr = "";
+            if (powerListPanels != null && powerListPanels[i] != null)
+            {
+                powerStr = powerListPanels[i].serialize();
+            }
+            if (!powerStr.isEmpty())
+            {
+                options.setOption(Options.playerPowers + i, powerStr);
+            }
         }
 
         return true;

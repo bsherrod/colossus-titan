@@ -106,6 +106,11 @@ public class Player
     private int score;
 
     /**
+     * The Lauer Powers assigned to this player (may be empty).
+     */
+    private PlayerPowers powers = new PlayerPowers();
+
+    /**
      * Sorted set of available legion markers for this player.
      */
     private final SortedSet<String> markersAvailable = new TreeSet<String>(
@@ -429,6 +434,74 @@ public class Player
         return score;
     }
 
+    public PlayerPowers getPowers()
+    {
+        return powers;
+    }
+
+    public void setPowers(PlayerPowers powers)
+    {
+        this.powers = powers;
+    }
+
+    /** Convenience: check if this player has a specific Lauer Power. */
+    public boolean hasPower(LauerPower p)
+    {
+        return powers.hasPower(p);
+    }
+
+    /** Maximum creatures per legion for this player (Nine Ball = 9, default = 7). */
+    public int getMaxLegionHeight()
+    {
+        if (hasPower(LauerPower.NINE_BALL))
+        {
+            return 9;
+        }
+        return 7;
+    }
+
+    /**
+     * Demon power: tracks the demon's current strength.
+     * Starts at Titan power level (6), reduced by 1 each time the
+     * possessed beast is killed. Player dies when this reaches 0.
+     */
+    private int demonStrength = 6;
+
+    /** Mulligan power: stores both dice rolls for per-group choice. */
+    private int mulliganRoll1 = 0;
+    private int mulliganRoll2 = 0;
+
+    public void setMulliganRolls(int roll1, int roll2)
+    {
+        this.mulliganRoll1 = roll1;
+        this.mulliganRoll2 = roll2;
+    }
+
+    public int getMulliganRoll1()
+    {
+        return mulliganRoll1;
+    }
+
+    public int getMulliganRoll2()
+    {
+        return mulliganRoll2;
+    }
+
+    public int getDemonStrength()
+    {
+        return demonStrength;
+    }
+
+    public void reduceDemonStrength()
+    {
+        demonStrength--;
+    }
+
+    public void setDemonStrength(int strength)
+    {
+        this.demonStrength = strength;
+    }
+
     public int getTitanPower()
     {
         return 6 + getScore()
@@ -437,6 +510,12 @@ public class Player
 
     public boolean canTitanTeleport()
     {
+        // Archmage: Titan group may teleport on roll of 5
+        if (hasPower(LauerPower.ARCHMAGE)
+            && getGame().getMovementRoll() == 5)
+        {
+            return true;
+        }
         return getScore() >= getGame().getVariant().getTitanTeleportValue();
     }
 

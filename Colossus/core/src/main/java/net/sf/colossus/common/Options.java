@@ -34,6 +34,7 @@ public final class Options implements IOptions
     // Will add player numbers 0 through n-1 to the end of these.
     public static final String playerName = "Player name ";
     public static final String playerType = "Player type ";
+    public static final String playerPowers = "Player powers ";
 
     public static final String runClientPlayer = "Network client playername";
     public static final String runClientHost = "Network client hostname";

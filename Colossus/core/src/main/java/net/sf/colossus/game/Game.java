@@ -60,6 +60,19 @@ public class Game
      */
     private int movementRoll = -1;
 
+    /** Mulligan/UDC: the two dice values for the current move phase. 0 = not set. */
+    private int mulliganDie1 = 0;
+    private int mulliganDie2 = 0;
+
+    public void setMulliganDice(int die1, int die2)
+    {
+        this.mulliganDie1 = die1;
+        this.mulliganDie2 = die2;
+    }
+
+    public int getMulliganDie1() { return mulliganDie1; }
+    public int getMulliganDie2() { return mulliganDie2; }
+
     /**
      *  Status for Game is over and message for it
      *  On client side this also implies:

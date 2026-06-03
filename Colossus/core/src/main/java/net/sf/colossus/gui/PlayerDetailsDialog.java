@@ -39,6 +39,7 @@ import net.sf.colossus.client.PredictSplits;
 import net.sf.colossus.common.Constants;
 import net.sf.colossus.common.Options;
 import net.sf.colossus.game.Creature;
+import net.sf.colossus.game.LauerPower;
 import net.sf.colossus.guiutil.KDialog;
 import net.sf.colossus.util.TimeFormats;
 import net.sf.colossus.variant.CreatureType;
@@ -214,6 +215,22 @@ public final class PlayerDetailsDialog extends KDialog
         result.add(new JLabel(String.valueOf(player.getTitanPower())),
             VALUE_CONSTRAINT);
         result.add(new JPanel(), HORIZONTAL_FILL_CONSTRAINT);
+
+        if (!player.getPowers().isEmpty())
+        {
+            result.add(new JLabel("Powers:"), FIRST_LABEL_CONSTRAINT);
+            StringBuilder powersText = new StringBuilder();
+            for (LauerPower p : player.getPowers().getPowers())
+            {
+                if (powersText.length() > 0)
+                {
+                    powersText.append(", ");
+                }
+                powersText.append(p.getDisplayName());
+            }
+            result.add(new JLabel(powersText.toString()), VALUE_CONSTRAINT);
+            result.add(new JPanel(), HORIZONTAL_FILL_CONSTRAINT);
+        }
 
         return result;
     }

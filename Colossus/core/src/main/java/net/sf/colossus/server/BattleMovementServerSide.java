@@ -7,6 +7,7 @@ import java.util.Set;
 import net.sf.colossus.common.IOptions;
 import net.sf.colossus.common.Options;
 import net.sf.colossus.game.Game;
+import net.sf.colossus.game.LauerPower;
 import net.sf.colossus.variant.BattleHex;
 import net.sf.colossus.variant.MasterBoardTerrain;
 
@@ -68,7 +69,10 @@ public class BattleMovementServerSide
                         || (ignoreMobileAllies
                             && bogey.getMarkerId().equals(
                                 critter.getMarkerId()) && !getBattleSS()
-                            .isInContact(bogey, false)))
+                            .isInContact(bogey, false))
+                        || (critter.getPlayer().hasPower(LauerPower.SMURFS)
+                            && bogey.getMarkerId().equals(
+                                critter.getMarkerId())))
                     {
                         entryCost = neighbor.getEntryCost(critter.getType(),
                             reverseDir, cumulativeSlow);

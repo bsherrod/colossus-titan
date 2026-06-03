@@ -3009,6 +3009,14 @@ public final class MasterBoard extends JPanel
             {
                 die.setLocation(0, 0);
                 die.paintComponent(g);
+
+                // Second die for Mulligan/UDC (shown to the right)
+                MovementDie die2 = gui.getMovementDie2();
+                if (die2 != null)
+                {
+                    die2.setLocation(4 * Scale.get() + 2, 0);
+                    die2.paintComponent(g);
+                }
             }
             else
             {

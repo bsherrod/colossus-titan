@@ -476,4 +476,14 @@
       <arg line="-a htdocs ${SERVER}:${HTML_DIR}" />
     </exec>
   </target>
+  <target name="scriptedtest" depends="jar"
+  description="Runs all scripted power tests (shell-based headless games)">
+    <exec executable="bash" failonerror="true">
+      <arg value="test-all-powers.sh"/>
+    </exec>
+    <exec executable="bash" failonerror="true">
+      <arg value="test-mulligan-scripted.sh"/>
+    </exec>
+  </target>
+
 </project>
