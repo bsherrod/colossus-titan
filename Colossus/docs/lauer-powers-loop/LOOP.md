@@ -74,9 +74,9 @@ STOP CHECK:
 1. If /Users/sherrodz/src/colossus-titan/Colossus/docs/lauer-powers-loop/STOP exists: call autonudge_stop(reason="sentinel"), do nothing else.
 
 PICK:
-2. kanban-md --dir $BOARD list --status todo --json | pick first by ID
-3. kanban-md --dir $BOARD move <id> in-progress
-4. If no todo tasks: autonudge_stop(reason="board drained"), stop.
+2. kanban-md --dir $BOARD pick --claim loop-agent --move in-progress --status todo
+3. If no task picked (board drained): autonudge_stop(reason="board drained"), stop.
+   The picked task ID and title are in the output — use them for the rest of the cycle.
 
 TDD EXECUTE (test-first, <=5 tool calls):
 5. FIRST: Write a failing test in ScriptedHumanPlayerTest.java that exercises the task's behavior.
@@ -90,8 +90,9 @@ TDD EXECUTE (test-first, <=5 tool calls):
 8. For UI tasks: consult docs/lauer-powers-loop/ui-designs.md.
 
 DONE:
-9. kanban-md --dir $BOARD move <id> done
-10. DM owner via send_message: "🔁 lauer-powers cycle-<n> · #<id>  Done: <1-line>  Next: <next-id>"
+9. kanban-md --dir $BOARD edit <id> --release
+10. kanban-md --dir $BOARD move <id> done
+11. DM owner via send_message: "🔁 lauer-powers cycle-<n> · #<id>  Done: <1-line>  Next: <next-id>"
 
 One cycle = one task. Test ALWAYS comes first.
 ```
