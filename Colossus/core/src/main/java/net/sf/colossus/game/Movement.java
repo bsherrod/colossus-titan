@@ -186,8 +186,10 @@ abstract public class Movement
         }
 
         // Tower teleport
-        if (hex.getTerrain().isTower() && legion.numLords() > 0
-            && towerTeleportAllowed())
+        boolean onTower = hex.getTerrain().isTower();
+        int lords = legion.numLords();
+        boolean towerOk = towerTeleportAllowed();
+        if (onTower && lords > 0 && towerOk)
         {
             // Mark every unoccupied hex within 6 hexes.
             if (towerToNonTowerTeleportAllowed())
@@ -217,17 +219,30 @@ abstract public class Movement
         }
 
         // Titan teleport
-        if (player.canTitanTeleport() && legion.hasTitan()
+        // Titan teleport (Demon: any group with angel may also teleport)
+        if (player.canTitanTeleport()
+            && (legion.hasTitan()
+                || (player.hasPower(LauerPower.DEMON) && legion.numLords() > 0))
             && titanTeleportAllowed())
         {
-            // Mark every hex containing an enemy stack that does not
-            // already contain a friendly stack.
-            for (Legion other : game.getEnemyLegions(player))
+            // Archmage on roll 5: teleport to unoccupied space 5 away
+            // (NOT to enemy hexes like normal titan teleport)
+            if (player.hasPower(LauerPower.ARCHMAGE)
+                && game.getMovementRoll() == 5 && legion.hasTitan())
             {
-                MasterHex otherHex = other.getCurrentHex();
-                if (!game.containsOpposingLegions(otherHex))
+                result.addAll(findNearbyUnoccupiedHexes(hex, legion, 5,
+                    Constants.NOWHERE));
+            }
+            else
+            {
+                // Normal titan teleport: to enemy hexes
+                for (Legion other : game.getEnemyLegions(player))
                 {
-                    result.add(otherHex);
+                    MasterHex otherHex = other.getCurrentHex();
+                    if (!game.containsOpposingLegions(otherHex))
+                    {
+                        result.add(otherHex);
+                    }
                 }
             }
         }
@@ -237,6 +252,12 @@ abstract public class Movement
             && game.getTurnNumber() == 1)
         {
             MasterHex tower = player.getStartingTower();
+            // Fallback: if startingTower not yet set on client (race condition),
+            // use the legion's current hex (which is the tower on turn 1)
+            if (tower == null && hex.getTerrain().isTower())
+            {
+                tower = hex;
+            }
             if (tower != null)
             {
                 result.addAll(findNearbyUnoccupiedHexes(tower, legion, 6,
@@ -452,15 +473,27 @@ abstract public class Movement
 
         if (roll == 0)
         {
+            // Ninja: if landing on enemy hex, get +1 extra movement
+            if (player.hasPower(LauerPower.NINJA)
+                && game.getNumEnemyLegions(hex, player) > 0
+                && !hex.equals(fromHex))
+            {
+                // Continue movement with 1 extra step (may repeat)
+                roll = 1;
+            }
+            else
+            {
             // This is the originally server side functionality:
             // XXX fix
             // This hex is the final destination.  Mark it as legal if
             // it is unoccupied by friendly legions.
+            // Ninja: may combine groups on same hex
             List<? extends Legion> legions = player.getLegions();
             for (Legion otherLegion : legions)
             {
                 if (!ignoreFriends && otherLegion != legion
-                    && hex.equals(otherLegion.getCurrentHex()))
+                    && hex.equals(otherLegion.getCurrentHex())
+                    && !player.hasPower(LauerPower.NINJA))
                 {
                     return result;
                 }
@@ -491,6 +524,7 @@ abstract public class Movement
                     + findEntrySide(hex, cameFrom).getLabel());
                 return result;
             }
+            } // end else (non-Ninja)
         }
         else if (roll < 0)
         {

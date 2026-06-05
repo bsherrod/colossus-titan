@@ -368,6 +368,11 @@ public abstract class Legion
 
     public boolean canFlee()
     {
+        // Amoeba: all legions may flee (despite having a lord/marker)
+        if (getPlayer().hasPower(LauerPower.AMOEBA))
+        {
+            return true;
+        }
         for (Creature critter : getCreatures())
         {
             if (critter.getType().isLord())

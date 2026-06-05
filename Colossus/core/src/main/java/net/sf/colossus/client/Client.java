@@ -4200,6 +4200,13 @@ public final class Client implements IClient, IOracle, IVariant,
         return !spectator && owningPlayer.equals(legion.getPlayer());
     }
 
+    /** Prophetess can view any legion's contents as if it were her own. */
+    public boolean canViewLegionContents(Legion legion)
+    {
+        return isMyLegion(legion)
+            || owningPlayer.hasPower(LauerPower.PROPHETESS);
+    }
+
     public boolean isMyTurn()
     {
         return !spectator && owningPlayer.equals(getActivePlayer());

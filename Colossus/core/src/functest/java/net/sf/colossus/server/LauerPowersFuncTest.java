@@ -142,11 +142,49 @@ public class LauerPowersFuncTest extends TestCase
     }
 
     /**
-     * Test: Movement powers (Smurfs, Upside-Down Cake, Ninja).
+     * Test: Movement powers (Upside-Down Cake, Ninja).
      */
     public void testMovementPowers()
     {
         LOGGER.info("test: Movement powers");
-        runGameWithPowers("SMURFS", "UPSIDE_DOWN_CAKE", "NINJA");
+        runGameWithPowers("UPSIDE_DOWN_CAKE", "NINJA", "MULLIGAN");
+    }
+
+    /**
+     * Test: Berserker declaration phase works end-to-end.
+     * AI auto-declares berserk via setupBerserk(), advances to FIGHT,
+     * creature strikes twice and dies. Verifies no crashes.
+     */
+    public void testBerserkerDeclarationPhaseE2E()
+    {
+        LOGGER.info("test: Berserker declaration phase E2E");
+        runGameWithPowers("BERSERKER", "ARMOURER", "");
+    }
+
+    /**
+     * Test: Zombie remove creatures + raise dead full game.
+     */
+    public void testZombieFullGame()
+    {
+        LOGGER.info("test: Zombie full game");
+        runGameWithPowers("ZOMBIE", "", "");
+    }
+
+    /**
+     * Test: Prophetess split-after-roll + carries full game.
+     */
+    public void testProphetessFullGame()
+    {
+        LOGGER.info("test: Prophetess full game");
+        runGameWithPowers("PROPHETESS", "", "");
+    }
+
+    /**
+     * Test: Amoeba all-legions-flee + no-angels full game.
+     */
+    public void testAmoebaFullGame()
+    {
+        LOGGER.info("test: Amoeba full game");
+        runGameWithPowers("AMOEBA", "", "");
     }
 }

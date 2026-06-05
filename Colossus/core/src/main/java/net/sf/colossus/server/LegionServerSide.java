@@ -9,6 +9,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import net.sf.colossus.common.Constants;
+import net.sf.colossus.game.LauerPower;
 import net.sf.colossus.game.Caretaker;
 import net.sf.colossus.game.Creature;
 import net.sf.colossus.game.EntrySide;
@@ -423,6 +424,11 @@ public final class LegionServerSide extends Legion implements
     boolean canSummonAngel()
     {
         PlayerServerSide player = getPlayer();
+        // Amoeba: no angels earned
+        if (player.hasPower(LauerPower.AMOEBA))
+        {
+            return false;
+        }
         if (getHeight() >= player.getMaxLegionHeight() || player.hasSummoned())
         {
             return false;
@@ -454,6 +460,20 @@ public final class LegionServerSide extends Legion implements
                 int count = caretaker.getAvailableCount(creature);
                 LOGGER.log(Level.INFO, "Added " + creature.toString() + " to "
                     + getMarkerId() + " - now there are " + count + " left.");
+            }
+            else if (caretaker.getDeadCount(creature) > 0
+                && (getPlayer().hasPower(LauerPower.THE_FOLKS)
+                    || getPlayer().hasPower(LauerPower.LIVING_DEAD)
+                    || getPlayer().hasPower(LauerPower.ZOMBIE)
+                    || getPlayer().hasPower(LauerPower.ARCHER)
+                    || getPlayer().hasPower(LauerPower.AVIAN)
+                    || getPlayer().hasPower(LauerPower.LORD_OF_THE_TREES)))
+            {
+                // Take from dead pile instead
+                caretaker.setDeadCount(creature,
+                    caretaker.getDeadCount(creature) - 1);
+                LOGGER.log(Level.INFO, "Added " + creature.toString()
+                    + " to " + getMarkerId() + " from dead pile.");
             }
             else
             {

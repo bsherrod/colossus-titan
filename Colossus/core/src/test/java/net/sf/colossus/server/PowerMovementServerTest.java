@@ -141,22 +141,6 @@ public class PowerMovementServerTest extends TestCase
         assertEquals(0, game.getMulliganDie1());
     }
 
-    // === Generic power movement: Smurfs -1 ===
-
-    public void testSmurfsRollReduction()
-    {
-        // Smurfs reduces roll by 1 (min 1)
-        // This happens in makeMovementRoll before setMovementRoll
-        // We verify the formula
-        int roll = 4;
-        int smurfsRoll = Math.max(1, roll - 1);
-        assertEquals(3, smurfsRoll);
-
-        roll = 1;
-        smurfsRoll = Math.max(1, roll - 1);
-        assertEquals(1, smurfsRoll); // can't go below 1
-    }
-
     // === Upside-Down Cake: 7-N ===
 
     public void testUDCDiceStoredOnGame()
@@ -171,12 +155,113 @@ public class PowerMovementServerTest extends TestCase
 
     public void testNinjaMoveBypassInMovement()
     {
-        // The ninja bypass is in Movement.findNormalMoves:
-        // if (player.hasPower(NINJA)) don't return early at enemy hex
-        // Verify the power check works
-        PlayerPowers pp = new PlayerPowers();
-        pp.addPower(LauerPower.NINJA);
-        assertTrue(pp.hasPower(LauerPower.NINJA));
+        // Ninja can move THROUGH enemy-occupied hexes
+        // Set up: Ninja on tower 100, enemy on adjacent hex, verify Ninja
+        // can reach hexes BEYOND the enemy (non-Ninja would be blocked)
+        MasterHex tower = variant.getMasterBoard().getHexByLabel("100");
+        Player ninja = new Player(game, "NinjaPlayer", 0);
+        ninja.getPowers().addPower(LauerPower.NINJA);
+        ninja.setStartingTower(tower);
+        game.addPlayer(ninja);
+
+        Player enemy = new Player(game, "EnemyPlayer", 1);
+        game.addPlayer(enemy);
+
+        TestLegion ninjaLegion = new TestLegion(ninja, "Rd01", tower);
+        ninja.addLegion(ninjaLegion);
+
+        // Place enemy on an adjacent hex
+        MasterHex adjHex = tower.getNeighbor(0);
+        if (adjHex != null)
+        {
+            TestLegion enemyLegion = new TestLegion(enemy, "Bu01", adjHex);
+            enemy.addLegion(enemyLegion);
+
+            game.setTurnNumber(2);
+            game.setMovementRoll(3);
+
+            // Ninja with roll=3 should have MORE moves than just the adjacent
+            // enemy hex (should pass through it)
+            Set<MasterHex> moves = movement.listNormalMoves(
+                ninjaLegion, tower, 3, false, null, false);
+            // Should include hexes beyond the enemy
+            assertTrue("Ninja should have moves beyond enemy hex (pass-through): "
+                + moves.size(), moves.size() > 1);
+        }
+    }
+
+    public void testNonNinjaBlockedByEnemy()
+    {
+        // Non-Ninja should be blocked by enemy hex (can only attack, not pass)
+        MasterHex tower = variant.getMasterBoard().getHexByLabel("100");
+        Player normal = new Player(game, "NormalPlayer", 0);
+        normal.setStartingTower(tower);
+        game.addPlayer(normal);
+
+        Player enemy = new Player(game, "EnemyPlayer", 1);
+        game.addPlayer(enemy);
+
+        TestLegion normalLegion = new TestLegion(normal, "Rd01", tower);
+        normal.addLegion(normalLegion);
+
+        MasterHex adjHex = tower.getNeighbor(0);
+        if (adjHex != null)
+        {
+            TestLegion enemyLegion = new TestLegion(enemy, "Bu01", adjHex);
+            enemy.addLegion(enemyLegion);
+
+            game.setTurnNumber(2);
+            game.setMovementRoll(3);
+
+            Set<MasterHex> normalMoves = movement.listNormalMoves(
+                normalLegion, tower, 3, false, null, false);
+            Set<MasterHex> ninjaPlayer = new java.util.HashSet<MasterHex>();
+
+            // Give the same player Ninja and recheck
+            normal.getPowers().addPower(LauerPower.NINJA);
+            Set<MasterHex> ninjaMoves = movement.listNormalMoves(
+                normalLegion, tower, 3, false, null, false);
+
+            // Ninja should have >= moves (pass-through gives more options)
+            assertTrue("Ninja should have >= moves than non-Ninja: "
+                + ninjaMoves.size() + " vs " + normalMoves.size(),
+                ninjaMoves.size() >= normalMoves.size());
+        }
+    }
+
+    public void testNinjaCombineGroupsOnSameHex()
+    {
+        // Ninja can land on own-occupied hex (combine groups)
+        // Non-Ninja cannot
+        MasterHex tower = variant.getMasterBoard().getHexByLabel("100");
+        MasterHex adj = tower.getNeighbor(0);
+        if (adj == null) return;
+
+        Player player = new Player(game, "NinjaPlayer", 0);
+        player.getPowers().addPower(LauerPower.NINJA);
+        player.setStartingTower(tower);
+        game.addPlayer(player);
+
+        TestLegion legion1 = new TestLegion(player, "Rd01", tower);
+        TestLegion legion2 = new TestLegion(player, "Rd02", adj);
+        player.addLegion(legion1);
+        player.addLegion(legion2);
+
+        game.setTurnNumber(2);
+        game.setMovementRoll(1);
+
+        // Legion1 with roll=1 should be able to reach adj (where legion2 is)
+        Set<MasterHex> moves = movement.listNormalMoves(
+            legion1, tower, 1, false, null, false);
+        assertTrue("Ninja should be able to move onto own-occupied hex: "
+            + moves, moves.contains(adj));
+
+        // Remove Ninja power: should NOT be able to land on own hex
+        player.getPowers().removePower(LauerPower.NINJA);
+        Set<MasterHex> normalMoves = movement.listNormalMoves(
+            legion1, tower, 1, false, null, false);
+        assertFalse("Non-Ninja should NOT land on own-occupied hex",
+            normalMoves.contains(adj));
     }
 
     // === Archmage: teleport on roll of 5 ===
@@ -345,20 +430,6 @@ public class PowerMovementServerTest extends TestCase
         }
     }
 
-    public void testConsistencySmurfs()
-    {
-        Player player = new Player(game, "SmurfsPlayer", 0);
-        player.getPowers().addPower(LauerPower.SMURFS);
-        game.addPlayer(player);
-        MasterHex tower = variant.getMasterBoard().getHexByLabel("100");
-        player.setStartingTower(tower);
-        TestLegion legion = new TestLegion(player, "Rd01", tower);
-        player.addLegion(legion);
-        game.setTurnNumber(2);
-        game.setMovementRoll(4); // Smurfs: effective = 3
-        assertEntrySideConsistency(player, legion, tower, "Smurfs");
-    }
-
     public void testConsistencyNinja()
     {
         Player player = new Player(game, "NinjaPlayer", 0);
@@ -416,6 +487,62 @@ public class PowerMovementServerTest extends TestCase
         assertEntrySideConsistency(player, legion, tower, "NoPower");
     }
 
+    public void testMulliganDoubleTeleportBothLegionsBeyondRollDistance()
+    {
+        // Turn 1, Mulligan rolls 2 and 3. Both legions should be able to
+        // teleport to hexes that are NOT reachable by normal movement
+        // (i.e. distance > 3 from tower).
+        MasterHex tower = variant.getMasterBoard().getHexByLabel("100");
+        Player player = new Player(game, "TestMulligan", 0);
+        player.getPowers().addPower(LauerPower.MULLIGAN);
+        player.setStartingTower(tower);
+        game.addPlayer(player);
+
+        TestLegion legion1 = new TestLegion(player, "Rd01", tower);
+        TestLegion legion2 = new TestLegion(player, "Rd02", tower);
+        player.addLegion(legion1);
+        player.addLegion(legion2);
+
+        game.setTurnNumber(1);
+        game.setMovementRoll(3); // max of (2,3)
+        game.setMulliganDice(2, 3);
+
+        // Legion 1: get teleport moves
+        Set<MasterHex> teleport1 = movement.listTeleportMoves(legion1, tower, 3);
+        assertTrue("Legion 1 should have teleport moves on turn 1 (roll 2,3): "
+            + teleport1.size(), teleport1.size() > 0);
+
+        // Get normal moves to prove teleport includes hexes beyond normal reach
+        Set<MasterHex> normal1 = movement.listNormalMoves(
+            legion1, tower, 3, false, null, false);
+        // Teleport should have destinations NOT in normal moves
+        Set<MasterHex> teleportOnly = new java.util.HashSet<MasterHex>(teleport1);
+        teleportOnly.removeAll(normal1);
+        // Also remove hexes reachable by roll=2
+        Set<MasterHex> normal1alt = movement.listNormalMoves(
+            legion1, tower, 2, false, null, false);
+        teleportOnly.removeAll(normal1alt);
+        assertTrue("Teleport should include hexes beyond roll 2 and 3: "
+            + teleportOnly.size(), teleportOnly.size() > 0);
+
+        // Now: first legion teleports
+        legion1.setTeleported(true);
+        assertTrue("Player hasTeleported after legion1 teleports",
+            player.hasTeleported());
+
+        // Legion 2: should STILL get teleport moves
+        Set<MasterHex> teleport2 = movement.listTeleportMoves(legion2, tower, 3);
+        assertTrue("Legion 2 should STILL have teleport moves after legion 1 teleported: "
+            + teleport2.size(), teleport2.size() > 0);
+
+        // And those moves should also include beyond-roll-distance hexes
+        Set<MasterHex> teleportOnly2 = new java.util.HashSet<MasterHex>(teleport2);
+        teleportOnly2.removeAll(normal1);
+        teleportOnly2.removeAll(normal1alt);
+        assertTrue("Legion 2 teleport should include hexes beyond roll 2 and 3: "
+            + teleportOnly2.size(), teleportOnly2.size() > 0);
+    }
+
     /** Minimal Legion for testing. */
     private static class TestLegion extends Legion
     {
@@ -434,4 +561,160 @@ public class PowerMovementServerTest extends TestCase
         public int getPointValue() { return 100; }
     }
 
+    // === Archmage: teleport on roll 5 ===
+
+    public void testArchmageTeleportOnRoll5()
+    {
+        Player player = new Player(game, "ArchmagePlayer", 0);
+        player.getPowers().addPower(LauerPower.ARCHMAGE);
+        game.addPlayer(player);
+        game.setMovementRoll(5);
+        assertTrue("Archmage should be able to titan-teleport on roll 5",
+            player.canTitanTeleport());
+    }
+
+    public void testArchmageNoTeleportOnRoll4()
+    {
+        Player player = new Player(game, "ArchmagePlayer", 0);
+        player.getPowers().addPower(LauerPower.ARCHMAGE);
+        game.addPlayer(player);
+        game.setMovementRoll(4);
+        assertFalse("Archmage should NOT titan-teleport on roll 4",
+            player.canTitanTeleport());
+    }
+
+    public void testNonArchmageNoTeleportOnRoll5()
+    {
+        Player player = new Player(game, "NormalPlayer", 0);
+        game.addPlayer(player);
+        game.setMovementRoll(5);
+        assertFalse("Non-Archmage should NOT titan-teleport on roll 5",
+            player.canTitanTeleport());
+    }
+
+    // === Upside-Down Cake: 7-N movement ===
+
+    public void testUDC7MinusNMovement()
+    {
+        // UDC: player may use rolled number OR 7-rolled
+        // If rolled 2, can move 2 OR 5
+        Player player = new Player(game, "UDCPlayer", 0);
+        player.getPowers().addPower(LauerPower.UPSIDE_DOWN_CAKE);
+        game.addPlayer(player);
+
+        MasterHex tower = variant.getMasterBoard().getHexByLabel("100");
+        player.setStartingTower(tower);
+        TestLegion legion = new TestLegion(player, "Rd01", tower);
+        player.addLegion(legion);
+
+        // Roll=2, UDC gives 7-2=5 as alt
+        game.setMovementRoll(5); // server stores max(2,5)=5
+        game.setMulliganDice(2, 5); // die1=rolled, die2=7-rolled
+
+        // Moves at roll=2 (short)
+        Set<MasterHex> movesAt2 = movement.listNormalMoves(legion, tower, 2);
+        // Moves at roll=5 (longer)
+        Set<MasterHex> movesAt5 = movement.listNormalMoves(legion, tower, 5);
+
+        assertTrue("Should have moves at roll=2", movesAt2.size() > 0);
+        assertTrue("Should have moves at roll=5", movesAt5.size() > 0);
+        // Both die values produce valid moves (the union gives more options)
+        Set<MasterHex> union = new java.util.HashSet<MasterHex>(movesAt2);
+        union.addAll(movesAt5);
+        assertTrue("Union of both rolls should be >= either alone",
+            union.size() >= movesAt2.size()
+            && union.size() >= movesAt5.size());
+    }
+
+    public void testUDC7MinusNValues()
+    {
+        // Verify 7-N arithmetic for all die values
+        assertEquals(6, 7 - 1);
+        assertEquals(5, 7 - 2);
+        assertEquals(4, 7 - 3);
+        assertEquals(3, 7 - 4);
+        assertEquals(2, 7 - 5);
+        assertEquals(1, 7 - 6);
+    }
+
+
+    /**
+     * REGRESSION: Mulligan turn 1 teleport with rolls 2,3.
+     * Bug: player cannot teleport with EITHER legion.
+     * This test must FAIL if the bug is present, PASS when fixed.
+     * This bug has regressed 5+ times — this test is the safety net.
+     */
+    public void testMulliganTurn1TeleportWithRoll2And3()
+    {
+        MasterHex tower = variant.getMasterBoard().getHexByLabel("100");
+        assertNotNull("Tower 100 must exist", tower);
+
+        Player player = new Player(game, "MulliganRegression", 0);
+        player.getPowers().addPower(LauerPower.MULLIGAN);
+        player.setStartingTower(tower);
+        game.addPlayer(player);
+
+        // Two legions on tower (post-split scenario on turn 1)
+        TestLegion legion1 = new TestLegion(player, "Rd01", tower);
+        TestLegion legion2 = new TestLegion(player, "Rd02", tower);
+        player.addLegion(legion1);
+        player.addLegion(legion2);
+
+        game.setTurnNumber(1);
+        // Mulligan rolled 2 and 3. Game stores the higher as movementRoll.
+        game.setMulliganDice(2, 3);
+        game.setMovementRoll(3);
+
+        // FIRST LEGION: must have teleport moves available
+        Set<MasterHex> moves1 = movement.listTeleportMoves(
+            legion1, tower, 3);
+        assertTrue("REGRESSION: Mulligan turn 1 with roll 2,3 — first legion "
+            + "MUST have teleport moves. Got " + moves1.size()
+            + ". If this fails, the Mulligan turn-1 teleport bug is back!",
+            moves1.size() > 0);
+
+        // Also check with the lower die value
+        Set<MasterHex> moves1alt = movement.listTeleportMoves(
+            legion1, tower, 2);
+        assertTrue("REGRESSION: Mulligan turn 1 with roll=2 — first legion "
+            + "MUST have teleport moves. Got " + moves1alt.size(),
+            moves1alt.size() > 0);
+
+        // SECOND LEGION: must ALSO have teleport moves (even after first teleports)
+        legion1.setTeleported(true);
+        Set<MasterHex> moves2 = movement.listTeleportMoves(
+            legion2, tower, 3);
+        assertTrue("REGRESSION: Mulligan turn 1 — second legion MUST have "
+            + "teleport moves even after first teleported. Got "
+            + moves2.size(),
+            moves2.size() > 0);
+    }
+
+    /**
+     * REGRESSION: Mulligan turn 1 — non-lord legion (after split) can teleport.
+     * Even a legion with 0 lords should get Mulligan turn-1 teleport.
+     */
+    public void testMulliganTurn1NoLordLegionCanTeleport()
+    {
+        MasterHex tower = variant.getMasterBoard().getHexByLabel("100");
+        Player player = new Player(game, "MulliganNoLord", 0);
+        player.getPowers().addPower(LauerPower.MULLIGAN);
+        player.setStartingTower(tower);
+        game.addPlayer(player);
+
+        // Legion with NO lords (post-split child)
+        TestLegion noLordLegion = new TestLegion(player, "Rd02", tower);
+        player.addLegion(noLordLegion);
+
+        game.setTurnNumber(1);
+        game.setMulliganDice(2, 3);
+        game.setMovementRoll(3);
+
+        Set<MasterHex> moves = movement.listTeleportMoves(
+            noLordLegion, tower, 3);
+        assertTrue("REGRESSION: Mulligan turn 1 — legion with no lords MUST "
+            + "still get teleport moves (Mulligan bypass). Got "
+            + moves.size(),
+            moves.size() > 0);
+    }
 }

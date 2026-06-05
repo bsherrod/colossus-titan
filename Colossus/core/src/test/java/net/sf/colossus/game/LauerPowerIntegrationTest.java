@@ -248,22 +248,6 @@ public class LauerPowerIntegrationTest extends TestCase
         assertFalse(blue.hasPower(LauerPower.VAMPIRE));
     }
 
-    // === Smurfs movement reduction ===
-
-    public void testSmurfsMovementReduction()
-    {
-        // Smurfs: movement roll - 1 (min 1)
-        // This is applied in makeMovementRoll on server side
-        // Test the formula: if roll > 1, subtract 1
-        int roll = 4;
-        int smurfsRoll = (roll > 1) ? roll - 1 : roll;
-        assertEquals(3, smurfsRoll);
-
-        roll = 1;
-        smurfsRoll = (roll > 1) ? roll - 1 : roll;
-        assertEquals(1, smurfsRoll); // min 1
-    }
-
     // === Upside-Down Cake 7-N ===
 
     public void testUpsideDownCakeFormula()

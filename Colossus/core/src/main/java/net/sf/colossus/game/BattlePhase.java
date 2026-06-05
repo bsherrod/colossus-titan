@@ -7,8 +7,14 @@ package net.sf.colossus.game;
 public enum BattlePhase
 {
     SUMMON("Summon", true, false, "summons"), RECRUIT("Recruit", true, false,
-        "recruits"), MOVE("Move", true, false, "moves"), FIGHT("Fight", false,
-        true, "strikes"), STRIKEBACK("Strikeback", false, true, "strikes back");
+        "recruits"), OGG("Ogg Attack", false, false, "ogg attacks"),
+        MOVE("Move", true, false, "moves"), HEAL("Heal", false, false,
+        "heals"), BERSERK("Berserk",
+        false, false, "declares berserkers"), DEATH_STRIKE("Death Strike",
+        false, false, "declares death strikes"), FIGHT("Fight", false,
+        true, "strikes"), STRIKEBACK("Strikeback", false, true,
+        "strikes back"), NINJA_MOVE("Ninja Move", true, false,
+        "ninja moves");
 
     /**
      * Determine if the phase is part of the fighting.

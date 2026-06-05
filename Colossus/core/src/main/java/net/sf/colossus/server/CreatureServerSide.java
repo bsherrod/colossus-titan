@@ -63,6 +63,14 @@ public class CreatureServerSide extends Creature implements BattleCritter
     private static int tagCounter = -1;
     private final SortedSet<PenaltyOption> penaltyOptions = new TreeSet<PenaltyOption>();
     private boolean carryPossible;
+    private boolean berserk;
+    private boolean deathStrike;
+    private boolean crossbowUsed;
+    private boolean nineball;
+    private boolean hover;
+    private boolean possessed; // Demon: this creature has a demon riding it
+    private int demonStrength; // Demon: separate HP pool for the demon
+    private boolean inStasis; // Vampire: Titan in stasis (left battle)
 
     public CreatureServerSide(CreatureType creature, Legion legion,
         GameServerSide game)
@@ -94,6 +102,139 @@ public class CreatureServerSide extends Creature implements BattleCritter
     public int getTag()
     {
         return tag;
+    }
+
+    public boolean isBerserk()
+    {
+        return berserk;
+    }
+
+    public void setBerserk(boolean berserk)
+    {
+        this.berserk = berserk;
+    }
+
+    public boolean isDeathStrike()
+    {
+        return deathStrike;
+    }
+
+    public void setDeathStrike(boolean deathStrike)
+    {
+        this.deathStrike = deathStrike;
+    }
+
+    public boolean isCrossbowUsed()
+    {
+        return crossbowUsed;
+    }
+
+    public boolean isNineball()
+    {
+        return nineball;
+    }
+
+    public void setNineball(boolean nineball)
+    {
+        this.nineball = nineball;
+    }
+
+    public boolean isHover()
+    {
+        return hover;
+    }
+
+    public void setHover(boolean hover)
+    {
+        this.hover = hover;
+    }
+
+    public boolean isPossessed()
+    {
+        return possessed;
+    }
+
+    public void setPossessed(boolean possessed, int demonStr)
+    {
+        this.possessed = possessed;
+        this.demonStrength = demonStr;
+    }
+
+    public int getDemonStrength()
+    {
+        return demonStrength;
+    }
+
+    public void setDemonStrength(int str)
+    {
+        this.demonStrength = str;
+    }
+
+    public boolean isInStasis()
+    {
+        return inStasis;
+    }
+
+    public void setInStasis(boolean stasis)
+    {
+        this.inStasis = stasis;
+    }
+
+    /** Lord of Trees: creature is in a tree if hex is Tree terrain,
+     *  OR if a friendly Titan with LORD_OF_THE_TREES is in the same hex. */
+    public boolean isInTreeOrSapling()
+    {
+        if (getCurrentHex() != null
+            && "Tree".equals(getCurrentHex().getTerrain().getName()))
+        {
+            return true;
+        }
+        // Titan-as-sapling: any hex with a Lord of Trees Titan counts as tree
+        if (battle != null && getPlayer().hasPower(LauerPower.LORD_OF_THE_TREES))
+        {
+            for (BattleCritter c : battle.getAllCritters())
+            {
+                if (c != this && c.getType().isTitan()
+                    && ((Creature)c).getPlayer() == getPlayer()
+                    && c.getCurrentHex().equals(getCurrentHex()))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public int getPower()
+    {
+        if (nineball)
+        {
+            // Nineball: strength = 9 - group size (min 1)
+            int groupSize = legion != null ? legion.getHeight() : 1;
+            return Math.max(1, 9 - groupSize);
+        }
+        return super.getPower();
+    }
+
+    @Override
+    public int getSkill()
+    {
+        if (nineball)
+        {
+            return 4;
+        }
+        return super.getSkill();
+    }
+
+    @Override
+    public int getPointValue()
+    {
+        if (nineball)
+        {
+            return 0; // nineball worth 0 points
+        }
+        return super.getPointValue();
     }
 
     public boolean isDefender()
@@ -166,16 +307,55 @@ public class CreatureServerSide extends Creature implements BattleCritter
         }
         strike2(target, dice, strikeNumber);
 
-        // Berserker power: AI auto-berserks when creature has 1 hit remaining
-        // (strikes twice with bonus, then dies)
-        if (getPlayer().hasPower(LauerPower.BERSERKER)
-            && (getPower() - getHits()) <= 1 && !isDead())
+        // Knight crossbow: mark as used if this was a rangestrike
+        if (getPlayer().hasPower(LauerPower.KNIGHT)
+            && !isRangestriker() && !crossbowUsed
+            && battle.numInContact(this, false) == 0)
         {
-            // Second berserk strike
+            crossbowUsed = true;
+            LOGGER.info(getDescription() + " used crossbow (one-shot rangestrike)");
+        }
+
+        // Archer: natural rangestrikers fire twice during strike phase
+        if (getPlayer().hasPower(LauerPower.ARCHER)
+            && getType().isRangestriker()
+            && battle.numInContact(this, false) == 0
+            && !isDead())
+        {
             strike2(target, dice, strikeNumber);
-            // Creature dies after berserking
-            setHits(getPower());
-            LOGGER.info(getDescription() + " went berserk and died");
+            LOGGER.info(getDescription() + " fires twice (Archer)");
+        }
+
+        // Berserker power: if creature is marked berserk, it gets a second
+        // strike and then always dies.
+        // AI auto-marks as berserk when 1 hit remaining (about to die anyway).
+        if (getPlayer().hasPower(LauerPower.BERSERKER) && !isDead())
+        {
+            if (!berserk && (getDefensivePower() - getHits()) <= 1)
+            {
+                berserk = true; // AI auto-berserk when about to die
+            }
+            if (berserk)
+            {
+                strike2(target, dice, strikeNumber);
+                setDead(true);
+                LOGGER.info(getDescription() + " went berserk (2 strikes) and died");
+            }
+        }
+
+        // Ninja death strike: creature dies after striking
+        // AI auto-marks when 1 hit remaining
+        if (getPlayer().hasPower(LauerPower.NINJA) && !isDead())
+        {
+            if (!deathStrike && (getDefensivePower() - getHits()) <= 1)
+            {
+                deathStrike = true; // AI auto-death-strike when about to die
+            }
+            if (deathStrike)
+            {
+                setDead(true);
+                LOGGER.info(getDescription() + " used death strike and died");
+            }
         }
     }
 
@@ -431,12 +611,6 @@ public class CreatureServerSide extends Creature implements BattleCritter
             }
         }
 
-        // Smurfs power: strikes do only ceil(2/3) damage
-        if (attackerPlayer != null
-            && attackerPlayer.hasPower(LauerPower.SMURFS) && damage > 0)
-        {
-            damage = (damage * 2 + 2) / 3; // ceil(2/3 * damage)
-        }
 
         int carryDamage = target.adjustHits(damage);
         if (carryDamage > 0 && !carryPossible)

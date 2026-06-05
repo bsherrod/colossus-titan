@@ -504,6 +504,11 @@ public class Player
 
     public int getTitanPower()
     {
+        // Vampire: Titan power = (score/50 + 1) * 4
+        if (hasPower(LauerPower.VAMPIRE))
+        {
+            return (getScore() / 50 + 1) * 4;
+        }
         return 6 + getScore()
             / getGame().getVariant().getTitanImprovementValue();
     }

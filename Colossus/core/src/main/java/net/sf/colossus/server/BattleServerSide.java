@@ -16,6 +16,7 @@ import net.sf.colossus.game.BattleCritter;
 import net.sf.colossus.game.BattlePhase;
 import net.sf.colossus.game.Creature;
 import net.sf.colossus.game.LauerPower;
+import net.sf.colossus.variant.CreatureType;
 import net.sf.colossus.game.Legion;
 import net.sf.colossus.game.Player;
 import net.sf.colossus.game.actions.SummonUndo;
@@ -59,6 +60,7 @@ public final class BattleServerSide extends Battle
     private boolean attackerEntered;
     private boolean conceded;
     private boolean preStrikeEffectsApplied = false;
+    private boolean fireSpellUsed = false;
 
     /**
      * Set of hexes for valid carry targets
@@ -66,6 +68,13 @@ public final class BattleServerSide extends Battle
     private final Set<BattleHex> carryTargets = new HashSet<BattleHex>();
     private final PhaseAdvancer phaseAdvancer = new BattlePhaseAdvancer();
     private int pointsScored = 0;
+    private final List<CreatureType> battleDeadCreatures = new ArrayList<CreatureType>();
+    private int folkCreaturesRemaining = 0;
+    private CreatureType folkCreatureType = null;
+
+    /** Lord of Trees: saplings planted during battle. Each entry: [hexLabel, hp] */
+    private final List<int[]> saplings = new ArrayList<int[]>();
+    private static final int MAX_SAPLINGS = 3;
 
     private final BattleMovementServerSide battleMovement;
 
@@ -147,6 +156,53 @@ public final class BattleServerSide extends Battle
         }
     }
 
+    private void spawnNineball(LegionServerSide legion)
+    {
+        if (legion.getPlayer().hasPower(LauerPower.NINE_BALL))
+        {
+            // Use first available creature type as base (power is overridden)
+            CreatureType baseType = legion.getCreatures().get(0).getType();
+            CreatureServerSide nineball = new CreatureServerSide(
+                baseType, legion, getGame());
+            nineball.setNineball(true);
+            legion.getCreatures().add(nineball);
+            server.allPlaceNewChit(nineball);
+            LOGGER.log(Level.INFO, "Nine Ball: spawned nineball demilord for "
+                + legion.getMarkerId() + " (str="
+                + nineball.getPower() + ")");
+        }
+    }
+
+    private void initFolkCreatures(LegionServerSide legion)
+    {
+        if (legion.getPlayer().hasPower(LauerPower.THE_FOLKS))
+        {
+            // Budget = 50% of legion's total point value
+            int legionValue = legion.getPointValue();
+            int budget = legionValue / 2;
+            // Find cheapest creature available in this terrain
+            // For now, use the weakest creature in the legion as the folk type
+            int cheapestValue = Integer.MAX_VALUE;
+            CreatureType cheapest = null;
+            for (Creature c : legion.getCreatures())
+            {
+                if (!c.getType().isLord() && c.getPointValue() < cheapestValue)
+                {
+                    cheapestValue = c.getPointValue();
+                    cheapest = c.getType();
+                }
+            }
+            if (cheapest != null && cheapestValue > 0)
+            {
+                folkCreatureType = cheapest;
+                folkCreaturesRemaining = budget / cheapestValue;
+                LOGGER.log(Level.INFO, "The Folks: " + folkCreaturesRemaining
+                    + " folk creatures (" + cheapest.getName()
+                    + ") for " + legion.getMarkerId());
+            }
+        }
+    }
+
     /** We need to do two-stage construction so that game.battle
      *  is non-null earlier. */
     void init()
@@ -154,6 +210,14 @@ public final class BattleServerSide extends Battle
         server.allInitBattle(getLocation());
         initBattleChits(getAttackingLegion());
         initBattleChits(getDefendingLegion());
+
+        // Nine Ball: spawn nineball demilord for each Nine Ball player
+        spawnNineball(getAttackingLegion());
+        spawnNineball(getDefendingLegion());
+
+        // The Folks: calculate folk creature budget for battle
+        initFolkCreatures(getAttackingLegion());
+        initFolkCreatures(getDefendingLegion());
 
         boolean advance = false;
         switch (phase)
@@ -263,6 +327,11 @@ public final class BattleServerSide extends Battle
         return phase;
     }
 
+    List<CreatureType> getBattleDeadCreatures()
+    {
+        return battleDeadCreatures;
+    }
+
     void setBattlePhase(BattlePhase phase)
     {
         this.phase = phase;
@@ -320,12 +389,40 @@ public final class BattleServerSide extends Battle
                 {
                     attackerEntered = true;
                 }
+                // Berserker: insert BERSERK phase before FIGHT
+                if (getActiveLegion() != null
+                    && getActiveLegion().getPlayer()
+                        .hasPower(LauerPower.BERSERKER))
+                {
+                    setBattlePhase(BattlePhase.BERSERK);
+                    LOGGER.info("Battle phase advances to BERSERK");
+                    again = setupBerserk();
+                }
+                else
+                {
+                    setBattlePhase(BattlePhase.FIGHT);
+                    LOGGER.log(Level.INFO, "Battle phase advances to " + phase);
+                    if (conceded)
+                    {
+                        LOGGER
+                            .log(Level.INFO, "Conceded - setting again to true.");
+                        again = true;
+                    }
+                    else
+                    {
+                        again = setupFight();
+                    }
+                }
+            }
+
+            else if (phase == BattlePhase.BERSERK)
+            {
+                // After BERSERK declaration, advance to FIGHT
                 setBattlePhase(BattlePhase.FIGHT);
                 LOGGER.log(Level.INFO, "Battle phase advances to " + phase);
                 if (conceded)
                 {
-                    LOGGER
-                        .log(Level.INFO, "Conceded - setting again to true.");
+                    LOGGER.log(Level.INFO, "Conceded - setting again to true.");
                     again = true;
                 }
                 else
@@ -466,6 +563,77 @@ public final class BattleServerSide extends Battle
         return false;
     }
 
+    /**
+     * Set up the BERSERK declaration phase.
+     * AI players auto-declare (creatures at 1 hit auto-berserk).
+     * Human players will use the UI dialog then call doneWithBerserkDeclarations().
+     * Returns true if should auto-advance (AI handles immediately).
+     */
+    private boolean setupBerserk()
+    {
+        LegionServerSide legion = getActiveLegion();
+        if (legion == null)
+        {
+            return true;
+        }
+        // Auto-declare berserk for creatures at 1 hit remaining
+        // (heuristic — creature about to die anyway gets double strike)
+        // TODO(task 218): For human players, show UI dialog instead of auto.
+        // Until then, all players use the AI heuristic and auto-advance.
+        for (CreatureServerSide critter : legion.getCreatures())
+        {
+            if (!critter.isDead() && critter.getHits() > 0
+                && critter.getPower() - critter.getHits() <= 1)
+            {
+                critter.setBerserk(true);
+                LOGGER.info("Auto-berserks " + critter.getType()
+                    .getName() + " (1 hit remaining)");
+            }
+        }
+        return true; // auto-advance to FIGHT (UI dialog not yet wired)
+    }
+
+    /**
+     * Called by the client when the player has finished declaring
+     * which creatures go berserk. Advances to FIGHT phase.
+     */
+    void doneWithBerserkDeclarations()
+    {
+        if (phase != BattlePhase.BERSERK)
+        {
+            LOGGER.warning("doneWithBerserkDeclarations called outside "
+                + "BERSERK phase (current: " + phase + ")");
+            return;
+        }
+        advancePhase();
+    }
+
+    /**
+     * Mark a creature as going berserk. Only valid during BERSERK phase.
+     * @param critter the creature to declare berserk
+     * @return true if successfully marked
+     */
+    boolean declareBerserk(CreatureServerSide critter)
+    {
+        if (phase != BattlePhase.BERSERK)
+        {
+            LOGGER.warning("declareBerserk called outside BERSERK phase");
+            return false;
+        }
+        if (critter == null || critter.isDead())
+        {
+            return false;
+        }
+        if (critter.getLegion() != getActiveLegion())
+        {
+            LOGGER.warning("Cannot declare berserk for opponent's creature");
+            return false;
+        }
+        critter.setBerserk(true);
+        LOGGER.info(critter.getType().getName() + " declared berserk");
+        return true;
+    }
+
     private boolean setupFight()
     {
         applyPreStrikeEffects();
@@ -592,6 +760,12 @@ public final class BattleServerSide extends Battle
     private void removeOffboardCreatures()
     {
         LegionServerSide legion = getActiveLegion();
+        // Nine Ball: grace period - off-board creatures survive through turn 2
+        if (legion.getPlayer().hasPower(LauerPower.NINE_BALL)
+            && getBattleTurnNumber() <= 2)
+        {
+            return;
+        }
         for (Creature critter : legion.getCreatures())
         {
             if (critter.getCurrentHex().isEntrance())
@@ -609,6 +783,183 @@ public final class BattleServerSide extends Battle
             critter.commitMove();
         }
     }
+
+    // === Vampire: Titan Leave Battle ===
+
+    private boolean titanInStasis = false;
+    private CreatureType stasisTitanType = null;
+    private int stasisTitanPower = 0;
+
+    /**
+     * Check whether the Vampire player's Titan can leave battle.
+     * Only allowed during the Vampire player's movement phase.
+     */
+    boolean canVampireTitanLeave()
+    {
+        if (phase != BattlePhase.MOVE)
+        {
+            return false;
+        }
+        LegionServerSide legion = getActiveLegion();
+        if (legion == null)
+        {
+            return false;
+        }
+        Player player = legion.getPlayer();
+        if (!player.hasPower(LauerPower.VAMPIRE))
+        {
+            return false;
+        }
+        // Check if Titan is in the battle
+        for (Creature critter : legion.getCreatures())
+        {
+            if (critter.isTitan())
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Vampire Titan leaves battle to stasis. Opponent scores points
+     * for the Titan immediately.
+     */
+    void vampireTitanToStasis()
+    {
+        if (!canVampireTitanLeave())
+        {
+            LOGGER.warning("vampireTitanToStasis called when not allowed");
+            return;
+        }
+        LegionServerSide legion = getActiveLegion();
+        CreatureServerSide titan = null;
+        for (CreatureServerSide critter : legion.getCreatures())
+        {
+            if (critter.isTitan())
+            {
+                titan = critter;
+                break;
+            }
+        }
+        if (titan == null)
+        {
+            return;
+        }
+
+        // Score points for opponent
+        int titanPoints = titan.getPointValue();
+        getInactiveLegion().addToBattleTally(titanPoints);
+        LOGGER.info("Vampire Titan enters stasis, opponent scores "
+            + titanPoints + " points");
+
+        // Store stasis state
+        titanInStasis = true;
+        stasisTitanType = titan.getType();
+        stasisTitanPower = titan.getPower();
+
+        // Remove Titan from battle
+        legion.prepareToRemoveCritter(titan, false, true);
+    }
+
+    /**
+     * Vampire Titan leaves battle to join another legion on the masterboard.
+     * Opponent scores points for the Titan immediately.
+     * @param targetLegion the non-engaged legion to join
+     */
+    void vampireTitanFleeToLegion(LegionServerSide targetLegion)
+    {
+        if (!canVampireTitanLeave())
+        {
+            LOGGER.warning("vampireTitanFleeToLegion called when not allowed");
+            return;
+        }
+        LegionServerSide legion = getActiveLegion();
+        CreatureServerSide titan = null;
+        for (CreatureServerSide critter : legion.getCreatures())
+        {
+            if (critter.isTitan())
+            {
+                titan = critter;
+                break;
+            }
+        }
+        if (titan == null)
+        {
+            return;
+        }
+
+        // Score points for opponent
+        int titanPoints = titan.getPointValue();
+        getInactiveLegion().addToBattleTally(titanPoints);
+        LOGGER.info("Vampire Titan flees to " + targetLegion.getMarkerId()
+            + ", opponent scores " + titanPoints + " points");
+
+        // Remove Titan from battle and add to target legion
+        legion.prepareToRemoveCritter(titan, false, true);
+        targetLegion.addCreature(titan.getType(), false);
+    }
+
+    /**
+     * Summon Vampire Titan back from stasis during a subsequent movement phase.
+     * Titan returns fully healed.
+     */
+    boolean canSummonTitanFromStasis()
+    {
+        return titanInStasis
+            && phase == BattlePhase.MOVE
+            && getActiveLegion() != null
+            && getActiveLegion().getPlayer().hasPower(LauerPower.VAMPIRE);
+    }
+
+    void summonTitanFromStasis()
+    {
+        if (!canSummonTitanFromStasis())
+        {
+            LOGGER.warning("summonTitanFromStasis called when not allowed");
+            return;
+        }
+        LegionServerSide legion = getActiveLegion();
+        // Add Titan back to legion (fully healed - fresh creature)
+        legion.addCreature(stasisTitanType, false);
+        titanInStasis = false;
+        stasisTitanType = null;
+        stasisTitanPower = 0;
+        LOGGER.info("Vampire Titan summoned back from stasis, fully healed");
+    }
+
+    boolean isTitanInStasis()
+    {
+        return titanInStasis;
+    }
+
+    /**
+     * Called when battle ends. If Titan is still in stasis and player lost,
+     * Titan dies. If player won, Titan must be assigned to a legion.
+     */
+    void resolveTitanStasis(boolean playerWon)
+    {
+        if (!titanInStasis)
+        {
+            return;
+        }
+        if (!playerWon)
+        {
+            // Titan dies
+            LOGGER.info("Vampire Titan in stasis dies (battle lost)");
+            LegionServerSide legion = getActiveLegion();
+            if (legion != null)
+            {
+                ((PlayerServerSide)legion.getPlayer()).eliminateTitan();
+            }
+        }
+        // If won, caller must prompt player to assign Titan to a legion
+        titanInStasis = false;
+        stasisTitanType = null;
+        stasisTitanPower = 0;
+    }
+
+    // === End Vampire Titan Leave ===
 
     void doneWithMoves()
     {
@@ -639,6 +990,44 @@ public final class BattleServerSide extends Battle
                     critter.setHits(critter.getHits() - 1);
                     LOGGER.log(Level.INFO, critter.getDescription()
                         + " healed 1 hit by Healer power");
+                }
+            }
+
+            // Archmage fire spell: once per battle, deal floor(titanStr/3)
+            // damage to each enemy creature
+            Player activePlayer = getBattleActivePlayer();
+            if (!fireSpellUsed
+                && activePlayer.hasPower(LauerPower.ARCHMAGE))
+            {
+                // Find Archmage's Titan power for the formula
+                int titanPower = 0;
+                for (BattleCritter c : getAllCritters())
+                {
+                    CreatureServerSide css = (CreatureServerSide)c;
+                    if (css.getPlayer() == activePlayer && css.isTitan()
+                        && !css.isDead())
+                    {
+                        titanPower = css.getPower();
+                        break;
+                    }
+                }
+                int damage = titanPower / 3;
+                if (damage > 0)
+                {
+                    fireSpellUsed = true;
+                    for (BattleCritter c : getAllCritters())
+                    {
+                        CreatureServerSide critter = (CreatureServerSide)c;
+                        if (critter.getPlayer() != activePlayer
+                            && !critter.isDead())
+                        {
+                            critter.adjustHits(damage);
+                            LOGGER.log(Level.INFO,
+                                critter.getDescription()
+                                    + " takes " + damage
+                                    + " fire spell damage (Archmage)");
+                        }
+                    }
                 }
             }
 
@@ -731,8 +1120,17 @@ public final class BattleServerSide extends Battle
                 CreatureServerSide critter = it.next();
                 if (critter.isDead())
                 {
-                    cleanupOneDeadCritter(critter);
-                    it.remove();
+                    // Living Dead: corpses remain in hex (not removed)
+                    if (critter.getPlayer().hasPower(LauerPower.LIVING_DEAD))
+                    {
+                        // Keep corpse — don't remove from legion
+                        // Still count as dead for elimination check
+                    }
+                    else
+                    {
+                        cleanupOneDeadCritter(critter);
+                        it.remove();
+                    }
                 }
                 else
                 // critter is alive
@@ -752,6 +1150,12 @@ public final class BattleServerSide extends Battle
 
     private void cleanupOneDeadCritter(Creature critter)
     {
+        // Track non-lord deaths for Zombie raise-dead
+        if (!critter.getType().isLord())
+        {
+            battleDeadCreatures.add(critter.getType());
+        }
+
         LegionServerSide legion = (LegionServerSide)critter.getLegion();
         LegionServerSide donor = null;
         boolean reinforced = false;
@@ -797,12 +1201,46 @@ public final class BattleServerSide extends Battle
         }
         else if (legion == getAttackingLegion())
         {
-            getDefendingLegion().addToBattleTally(critter.getPointValue());
+            int pts = critter.getPointValue();
+            // Amoeba: legion marker (Titan) worth 0 points
+            if (player.hasPower(LauerPower.AMOEBA) && critter.isTitan())
+            {
+                pts = 0;
+            }
+            // Nine Ball: creatures worth only 80%
+            if (player.hasPower(LauerPower.NINE_BALL))
+            {
+                pts = pts * 4 / 5;
+            }
+            getDefendingLegion().addToBattleTally(pts);
+            // Vampire: also earn half points for own dead
+            if (player.hasPower(LauerPower.VAMPIRE))
+            {
+                getAttackingLegion().addToBattleTally(
+                    critter.getPointValue() / 2);
+            }
         }
         else
         // defender
         {
-            getAttackingLegion().addToBattleTally(critter.getPointValue());
+            int pts = critter.getPointValue();
+            // Amoeba: legion marker (Titan) worth 0 points
+            if (player.hasPower(LauerPower.AMOEBA) && critter.isTitan())
+            {
+                pts = 0;
+            }
+            // Nine Ball: creatures worth only 80%
+            if (player.hasPower(LauerPower.NINE_BALL))
+            {
+                pts = pts * 4 / 5;
+            }
+            getAttackingLegion().addToBattleTally(pts);
+            // Vampire: also earn half points for own dead
+            if (player.hasPower(LauerPower.VAMPIRE))
+            {
+                getDefendingLegion().addToBattleTally(
+                    critter.getPointValue() / 2);
+            }
 
             // Creatures left off board do not trigger angel
             // summoning.
@@ -832,7 +1270,13 @@ public final class BattleServerSide extends Battle
 
         if (critter.isTitan())
         {
-            (legion.getPlayer()).eliminateTitan();
+            // Zombie: Titan death does not end battle
+            // Amoeba: legion marker death has no effect
+            if (!legion.getPlayer().hasPower(LauerPower.ZOMBIE)
+                && !legion.getPlayer().hasPower(LauerPower.AMOEBA))
+            {
+                (legion.getPlayer()).eliminateTitan();
+            }
         }
     }
 
@@ -1001,8 +1445,17 @@ public final class BattleServerSide extends Battle
         // Then do rangestrikes if applicable.  Rangestrikes are not allowed
         // if the creature can strike normally, so only look for them if
         // no targets have yet been found.
-        if (rangestrike && !adjacentEnemy && critter.isRangestriker()
-            && getBattlePhase() != BattlePhase.STRIKEBACK
+        boolean isArcher = player != null && player.hasPower(LauerPower.ARCHER);
+        // Knight crossbow: rangestrike during STRIKEBACK only, once per combat
+        boolean isKnightCrossbow = player != null
+            && player.hasPower(LauerPower.KNIGHT)
+            && getBattlePhase() == BattlePhase.STRIKEBACK
+            && !((CreatureServerSide)critter).isCrossbowUsed();
+        if (rangestrike
+            && (isArcher || isKnightCrossbow || !adjacentEnemy)
+            && (isArcher || isKnightCrossbow || critter.isRangestriker())
+            && (isArcher || isKnightCrossbow
+                || getBattlePhase() != BattlePhase.STRIKEBACK)
             && critter.getLegion() == getActiveLegion())
         {
             for (Creature target : getInactiveLegion().getCreatures())

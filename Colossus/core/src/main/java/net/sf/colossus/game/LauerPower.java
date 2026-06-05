@@ -74,7 +74,7 @@ public enum LauerPower
         + " strike at +floor(strength/4) strength. At the beginning of any strike phase you may"
         + " select one or more of your characters to go berserk. A berserk character strikes twice,"
         + " but dies automatically immediately (and counts as a kill for opponent's angel summoning). "
-        , Status.PARTIAL),
+        , Status.FULL),
 
     DEMON("Demon",
         "You have the power of possession. You start the game with two angels, but not Titans."
@@ -126,7 +126,7 @@ public enum LauerPower
         + " rangestrike once per combat (crossbow) (~ creatures may do so during counterswing, but"
         + " not during your strike phase). All your creatures melee strike at +floor(strength/2)"
         + " strength. "
-        , Status.PARTIAL),
+        , Status.FULL),
 
     LIVING_DEAD("Living dead",
         "The dead fight for you. You may recruit freely from the dead pile should none of the"
@@ -216,19 +216,6 @@ public enum LauerPower
         + " your strikes, even when the carry will be for a higher skill. "
         , Status.FULL),
 
-    SMURFS("Smurfs",
-        "Everything seems very smurfy. You must use the blue smurf markers. After rolling for"
-        + " movement you may decide that your little legs can not carry you that far; all your groups"
-        + " which do not teleport move one less than normal. Your creature's [range] strikes do only"
-        + " ceiling(2/3 damage). You may stack two creatures in one hex (potentially 4 if you are"
-        + " avian). At the beginning of a combat you may choose one of your groups to be a helper"
-        + " group (display the entire group immediately): You may bring in one character each of your"
-        + " movement phases from the helper group, though the total value of helping characters may"
-        + " not exceed 50% the original value of your fighting group (no points are scored for the"
-        + " helping creatures). The helping characters do not count against your stacking limit. At"
-        + " the end of the battle any surviving helping creatures must go back to the helping stack."
-        + " The smurfs are currently having their smurfberry festival, and are to busy to play Titan. "
-        , Status.PARTIAL),
 
     UPSIDE_DOWN_CAKE("Upside-Down Cake",
         "Everything seems upside down. When you roll for recruitment, you may either use the"

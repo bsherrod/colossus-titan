@@ -135,6 +135,15 @@ public class BattleStrikeServerSide
             {
                 dice += striker.getPower() / 4;
             }
+            // Ninja death strike: +remaining_hits bonus dice
+            if (strikerPlayer.hasPower(LauerPower.NINJA)
+                && striker instanceof CreatureServerSide
+                && ((CreatureServerSide)striker).isDeathStrike())
+            {
+                int remainingHits = striker.getDefensivePower()
+                    - striker.getHits();
+                dice += remainingHits;
+            }
         }
 
         return dice;
@@ -160,10 +169,22 @@ public class BattleStrikeServerSide
         // Skill can be modified by terrain.
         if (!rangestrike)
         {
+            // Marines: never penalized for terrain (except walls and volcanoes)
+            // but do NOT get native terrain bonuses
+            boolean isMarines = striker.getPlayer() != null
+                && striker.getPlayer().hasPower(LauerPower.MARINES);
+
             // striking out of possible hazard
-            attackerSkill -= hex.getTerrain().getSkillPenaltyStrikeFrom(
+            int terrainPenalty = hex.getTerrain().getSkillPenaltyStrikeFrom(
                 striker.isNativeIn(hex.getTerrain()),
                 target.isNativeIn(hex.getTerrain()));
+            // Marines: ignore penalties (positive values) but keep bonuses (negative values)
+            if (isMarines && terrainPenalty > 0
+                && !hex.getTerrain().equals(HazardTerrain.VOLCANO))
+            {
+                terrainPenalty = 0;
+            }
+            attackerSkill -= terrainPenalty;
 
             if (hex.getElevation() > targetHex.getElevation())
             {
@@ -185,9 +206,9 @@ public class BattleStrikeServerSide
                     false);
                 HazardHexside hazard = targetHex.getHexsideHazard(direction);
                 // Non-native striking up slope: -1
-                // Striking up across wall: -1
-                if ((hazard.equals(HazardHexside.SLOPE) && !striker
-                    .isNativeAt(HazardHexside.SLOPE))
+                // Striking up across wall: -1 (Marines exception: walls still penalize)
+                if ((hazard.equals(HazardHexside.SLOPE) && !isMarines
+                    && !striker.isNativeAt(HazardHexside.SLOPE))
                     || hazard.equals(HazardHexside.TOWER))
                 {
                     attackerSkill--;

@@ -16,7 +16,7 @@ public class LauerPowerTest extends TestCase
 
     public void testAllPowersExist()
     {
-        assertEquals(23, LauerPower.getAll().length);
+        assertEquals(22, LauerPower.getAll().length);
     }
 
     public void testDisplayNamesNonNull()

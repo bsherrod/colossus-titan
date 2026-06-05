@@ -1007,6 +1007,41 @@ public class GameServerSide extends Game
                     }
                 }
             }
+            if (player.hasPower(LauerPower.NINE_BALL))
+            {
+                // Start with extra centaur, ogre, and 2 gargoyles
+                LegionServerSide legion =
+                    (LegionServerSide)player.getLegions().get(0);
+                String[] extras = {"Centaur", "Ogre", "Gargoyle", "Gargoyle"};
+                for (String name : extras)
+                {
+                    CreatureType ct = getVariant().getCreatureByName(name);
+                    if (ct != null && legion.getHeight() < 9)
+                    {
+                        if (legion.addCreature(ct, false))
+                        {
+                            getCaretaker().takeOne(ct);
+                        }
+                    }
+                }
+            }
+            if (player.hasPower(LauerPower.DEMON))
+            {
+                // Demon: start with 2 angels, no Titans
+                // Replace the Titan in starting legion with an Angel
+                LegionServerSide legion =
+                    (LegionServerSide)player.getLegions().get(0);
+                CreatureType titan = getVariant().getCreatureByName("Titan");
+                CreatureType angel = getVariant().getCreatureByName(
+                    getVariant().getPrimaryAcquirable());
+                if (titan != null && angel != null)
+                {
+                    legion.removeCreature(titan);
+                    getCaretaker().putOneBack(titan);
+                    legion.addCreature(angel, false);
+                    getCaretaker().takeOne(angel);
+                }
+            }
             if (player.hasPower(LauerPower.ZOMBIE))
             {
                 // Start with 2 each of these creatures in the dead pile
@@ -1199,12 +1234,6 @@ public class GameServerSide extends Game
         Player player = getActivePlayer();
         int roll = ((PlayerServerSide)player).rollMovement(reason);
         int originalRoll = roll;
-        // Smurfs power: all groups move one less than rolled (minimum 1)
-        if (player.hasPower(LauerPower.SMURFS) && roll > 1)
-        {
-            roll = roll - 1;
-            originalRoll = roll; // Smurfs applies before UDC
-        }
         // Upside-Down Cake: may use 7 minus rolled number
         if (player.hasPower(LauerPower.UPSIDE_DOWN_CAKE))
         {
@@ -1234,11 +1263,17 @@ public class GameServerSide extends Game
                 roll = secondRoll;
             }
         }
-        // Ninja: may reroll movement once (AI rerolls if roll <= 3)
+        // Ninja: may reroll movement die until a different number is rolled.
+        // AI rerolls if roll <= 3.
         if (player.hasPower(LauerPower.NINJA) && roll <= 3)
         {
-            int reroll = ((PlayerServerSide)player).makeMovementRoll();
-            roll = reroll; // must take the reroll result
+            int originalNinjaRoll = roll;
+            int reroll = originalNinjaRoll;
+            while (reroll == originalNinjaRoll)
+            {
+                reroll = ((PlayerServerSide)player).makeMovementRoll();
+            }
+            roll = reroll;
         }
         // update in game.Game:
         setMovementRoll(roll);
@@ -1655,6 +1690,13 @@ public class GameServerSide extends Game
             if (isPhase(Phase.MOVE))
             {
                 makeMovementRoll(Constants.reasonNormalRoll);
+                // Prophetess: split AFTER seeing the roll
+                if (getActivePlayer().hasPower(LauerPower.PROPHETESS))
+                {
+                    server.allSetupSplit();
+                }
+                // Zombie: may remove creatures from groups before moving
+                // (AI does not exercise this option)
             }
 
             if (isAutoSavePoint())
@@ -1712,6 +1754,15 @@ public class GameServerSide extends Game
     {
         if (isPhase(Phase.SPLIT))
         {
+            // Prophetess: skip normal split phase, split happens after roll
+            if (getActivePlayer().hasPower(LauerPower.PROPHETESS))
+            {
+                // Auto-advance past SPLIT; split will happen in MOVE
+                ((PlayerServerSide)getActivePlayer()).resetTurnState();
+                setPhase(Phase.MOVE);
+                setupMove();
+                return;
+            }
             setupSplit();
         }
         else if (isPhase(Phase.MOVE))
@@ -2348,6 +2399,70 @@ public class GameServerSide extends Game
             }
         }
 
+        // Archer/Avian: recruit gorgons and rangers from dead pile
+        // if none left in caretaker's stacks
+        if (legion.getPlayer().hasPower(LauerPower.ARCHER)
+            || legion.getPlayer().hasPower(LauerPower.AVIAN))
+        {
+            for (CreatureType creature : tempRecruits)
+            {
+                String name = creature.getName();
+                if ((name.equals("Gorgon") || name.equals("Ranger"))
+                    && !recruits.contains(creature)
+                    && getCaretaker().getAvailableCount(creature) < 1
+                    && getCaretaker().getDeadCount(creature) > 0)
+                {
+                    recruits.add(creature);
+                }
+            }
+        }
+
+        // Lord of Trees: recruit warbears/minotaurs/unicorns/trolls/cyclops
+        // from dead pile if none left in caretaker's stacks
+        if (legion.getPlayer().hasPower(LauerPower.LORD_OF_THE_TREES))
+        {
+            for (CreatureType creature : tempRecruits)
+            {
+                String name = creature.getName();
+                if ((name.equals("Warbear") || name.equals("Minotaur")
+                    || name.equals("Unicorn") || name.equals("Troll")
+                    || name.equals("Cyclops"))
+                    && !recruits.contains(creature)
+                    && getCaretaker().getAvailableCount(creature) < 1
+                    && getCaretaker().getDeadCount(creature) > 0)
+                {
+                    recruits.add(creature);
+                }
+            }
+        }
+
+        // Administrator: recruit any terrain creature with any creature
+        // in group worth at least 25% more points
+        if (legion.getPlayer().hasPower(LauerPower.ADMINISTRATOR))
+        {
+            int maxPointsInLegion = 0;
+            for (Creature c : ((LegionServerSide)legion).getCreatures())
+            {
+                int pv = c.getType().getPointValue();
+                if (pv > maxPointsInLegion)
+                {
+                    maxPointsInLegion = pv;
+                }
+            }
+            for (CreatureType creature : tempRecruits)
+            {
+                // 25% more = recruiter >= 1.25 * target
+                // Use integer math: recruiter*4 >= target*5
+                if (!recruits.contains(creature)
+                    && maxPointsInLegion * 4 >= creature.getPointValue() * 5
+                    && (getCaretaker().getAvailableCount(creature) > 0
+                        || getCaretaker().getDeadCount(creature) > 0))
+                {
+                    recruits.add(creature);
+                }
+            }
+        }
+
         // Prophetess: any creature in legion counts as any recruiter
         // (effectively: all terrain creatures are recruitable if legion
         // has at least one creature and target is available)
@@ -2471,7 +2586,20 @@ public class GameServerSide extends Game
 
         lastRecruitTurnNumber = turnNumber;
 
-        if (((LegionServerSide)legion).addCreature(recruit, true))
+        // Living Dead: if legion is full, recruit into dead pile instead
+        boolean recruitedToDeadPile = false;
+        if (legion.getPlayer().hasPower(LauerPower.LIVING_DEAD)
+            && ((LegionServerSide)legion).getHeight()
+                >= legion.getPlayer().getMaxLegionHeight())
+        {
+            getCaretaker().setDeadCount(recruit,
+                getCaretaker().getDeadCount(recruit) + 1);
+            LOGGER.info("Living Dead: recruited " + recruit.getName()
+                + " directly into dead pile for " + legion);
+            recruitedToDeadPile = true;
+        }
+
+        if (recruitedToDeadPile || ((LegionServerSide)legion).addCreature(recruit, true))
         {
             MasterHex hex = legion.getCurrentHex();
             int numRecruiters = 0;
@@ -2704,6 +2832,10 @@ public class GameServerSide extends Game
     void finishBattle(MasterHex masterHex, boolean attackerEntered,
         int points, int turnDone)
     {
+        // Save battle dead for Zombie raise-dead (before cleanup nulls battle)
+        List<CreatureType> battleDead = getBattleSS() != null
+            ? new ArrayList<CreatureType>(getBattleSS().getBattleDeadCreatures())
+            : new ArrayList<CreatureType>();
         getBattleSS().cleanRefs();
         battle = null;
         server.allCleanupBattle();
@@ -2716,6 +2848,39 @@ public class GameServerSide extends Game
 
             // Make all creatures in the victorious legion visible.
             server.allRevealLegion(battleWinner, Constants.reasonWinner);
+
+            // Zombie: if Titan died during battle but Zombie won, place Titan back
+            if (battleWinner.getPlayer().hasPower(LauerPower.ZOMBIE)
+                && !battleWinner.hasTitan())
+            {
+                CreatureType titanType = getVariant().getCreatureByName("Titan");
+                if (titanType != null)
+                {
+                    ((LegionServerSide)battleWinner).addCreature(titanType, false);
+                    LOGGER.info("Zombie Titan restored to " + battleWinner);
+                }
+            }
+
+            // Zombie: raise dead non-lord creatures from the battle
+            if (battleWinner.getPlayer().hasPower(LauerPower.ZOMBIE)
+                && !battleDead.isEmpty())
+            {
+                int maxHeight = battleWinner.getPlayer().getMaxLegionHeight();
+                for (CreatureType ct : battleDead)
+                {
+                    if (((LegionServerSide)battleWinner).getHeight() >= maxHeight)
+                    {
+                        break;
+                    }
+                    ((LegionServerSide)battleWinner).addCreature(ct, false);
+                    LOGGER.info("Zombie raised " + ct + " into " + battleWinner);
+                }
+            }
+
+            // Zombie: may remove non-lords from group at end of battle
+            // (same time as raising, before recruiting/angel summoning)
+            // AI does not exercise this option.
+
             // Remove battle info from winning legion and its creatures.
             battleWinner.clearBattleInfo();
 
@@ -2768,8 +2933,9 @@ public class GameServerSide extends Game
             return false;
         }
 
-        // Pre-split legion must have 4+ creatures.
-        if (((LegionServerSide)parent).getHeight() < 4)
+        // Pre-split legion must have 4+ creatures (Ninja: 2+).
+        int minPreSplit = player.hasPower(LauerPower.NINJA) ? 2 : 4;
+        if (((LegionServerSide)parent).getHeight() < minPreSplit)
         {
             LOGGER.log(Level.SEVERE, "Legion " + parent
                 + " is too short to split.");
@@ -2784,9 +2950,11 @@ public class GameServerSide extends Game
         }
 
         // Each legion must have 2+ creatures after the split.
-        if (creaturesToSplit.size() < 2
+        // Ninja: may split off single-creature legions
+        int minSplitSize = player.hasPower(LauerPower.NINJA) ? 1 : 2;
+        if (creaturesToSplit.size() < minSplitSize
             || ((LegionServerSide)parent).getHeight()
-                - creaturesToSplit.size() < 2)
+                - creaturesToSplit.size() < minSplitSize)
         {
             LOGGER.finest("Too small/big split list (" + parent + ", "
                 + childId + ")");
@@ -2865,6 +3033,42 @@ public class GameServerSide extends Game
             server.oneRevealLegion(parent, player, Constants.reasonSplit);
             server.oneRevealLegion(newLegion, player, Constants.reasonSplit);
         }
+        return true;
+    }
+
+    /** The Folks: voluntarily remove one legion before movement.
+     *  Only allowed if player has THE_FOLKS power and no legion has moved yet. */
+    boolean doRemoveFolksLegion(Legion legion)
+    {
+        Player player = legion.getPlayer();
+        if (!player.hasPower(LauerPower.THE_FOLKS))
+        {
+            LOGGER.warning("doRemoveFolksLegion: player lacks THE_FOLKS power");
+            return false;
+        }
+        if (!isPhase(Phase.MOVE))
+        {
+            LOGGER.warning("doRemoveFolksLegion: not in MOVE phase");
+            return false;
+        }
+        // Only allowed before any legion has moved
+        for (Legion leg : player.getLegions())
+        {
+            if (leg.hasMoved())
+            {
+                LOGGER.warning("doRemoveFolksLegion: a legion has already moved");
+                return false;
+            }
+        }
+        // Must keep at least one legion
+        if (player.getNumLegions() <= 1)
+        {
+            LOGGER.warning("doRemoveFolksLegion: can't remove last legion");
+            return false;
+        }
+        ((LegionServerSide)legion).remove();
+        LOGGER.info("The Folks: player " + player.getName()
+            + " voluntarily removed legion " + legion.getMarkerId());
         return true;
     }
 
@@ -3129,6 +3333,11 @@ public class GameServerSide extends Game
         Legion attacker = getFirstFriendlyLegion(hex, player);
         Legion defender = getFirstEnemyLegion(hex, player);
 
+        // Administrator: defender may recruit before battle
+        administratorPreBattleRecruit((LegionServerSide)defender, hex);
+        // Administrator: attacker may also recruit before battle
+        administratorPreBattleRecruit((LegionServerSide)attacker, hex);
+
         server.askConcede(attacker, defender);
     }
 
@@ -3142,6 +3351,128 @@ public class GameServerSide extends Game
         attackerProposals.clear();
         defenderProposals.clear();
         server.twoNegotiate(attacker, defender);
+    }
+
+    /**
+     * Administrator power: recruit before battle.
+     * Auto-recruits the best available creature if the legion has room.
+     */
+    private void administratorPreBattleRecruit(LegionServerSide legion,
+        MasterHex hex)
+    {
+        if (legion == null || !legion.getPlayer().hasPower(
+            LauerPower.ADMINISTRATOR))
+        {
+            return;
+        }
+        if (legion.getHeight() >= legion.getPlayer().getMaxLegionHeight())
+        {
+            return;
+        }
+        List<CreatureType> recruits = findEligibleRecruits(legion, hex);
+        if (recruits.isEmpty())
+        {
+            return;
+        }
+        // Pick the best (last in list = strongest)
+        CreatureType bestRecruit = recruits.get(recruits.size() - 1);
+        List<CreatureType> recruiters = findEligibleRecruiters(legion,
+            bestRecruit.getName());
+        CreatureType recruiter = recruiters.isEmpty() ? null
+            : recruiters.get(0);
+        doRecruit(legion, bestRecruit, recruiter);
+        LOGGER.info("Administrator pre-battle recruit: " + legion.getMarkerId()
+            + " recruits " + bestRecruit.getName());
+    }
+
+    /**
+     * Zombie power: remove a creature from a group and put it in the dead pile.
+     * Valid after rolling for movement but before moving.
+     * @return true if creature was successfully removed
+     */
+    boolean zombieRemoveCreatureFromGroup(LegionServerSide legion,
+        CreatureType creature)
+    {
+        if (legion == null || creature == null)
+        {
+            return false;
+        }
+        Player player = legion.getPlayer();
+        if (!player.hasPower(LauerPower.ZOMBIE))
+        {
+            LOGGER.warning("zombieRemoveCreature called without ZOMBIE power");
+            return false;
+        }
+        if (!isPhase(Phase.MOVE))
+        {
+            LOGGER.warning("zombieRemoveCreature called outside MOVE phase");
+            return false;
+        }
+        if (creature.isLord())
+        {
+            LOGGER.warning("Cannot remove lords from group (Zombie)");
+            return false;
+        }
+        // Remove creature from legion, return to dead pile (caretaker)
+        int idx = -1;
+        for (int i = 0; i < legion.getHeight(); i++)
+        {
+            if (legion.getCreatures().get(i).getType().equals(creature))
+            {
+                idx = i;
+                break;
+            }
+        }
+        if (idx < 0)
+        {
+            return false;
+        }
+        legion.prepareToRemoveCritter(
+            (CreatureServerSide)legion.getCreatures().get(idx), true, true);
+        LOGGER.info("Zombie: removed " + creature.getName() + " from "
+            + legion.getMarkerId() + " to dead pile");
+        return true;
+    }
+
+    /**
+     * Zombie power: remove a non-lord creature from group at end of battle.
+     * Same timing as raising dead, before recruiting/angel summoning.
+     * May destroy the group if all creatures removed.
+     */
+    boolean zombieRemoveAfterBattle(LegionServerSide legion,
+        CreatureType creature)
+    {
+        if (legion == null || creature == null)
+        {
+            return false;
+        }
+        if (!legion.getPlayer().hasPower(LauerPower.ZOMBIE))
+        {
+            return false;
+        }
+        if (creature.isLord())
+        {
+            LOGGER.warning("Cannot remove lords (Zombie post-battle)");
+            return false;
+        }
+        int idx = -1;
+        for (int i = 0; i < legion.getHeight(); i++)
+        {
+            if (legion.getCreatures().get(i).getType().equals(creature))
+            {
+                idx = i;
+                break;
+            }
+        }
+        if (idx < 0)
+        {
+            return false;
+        }
+        legion.prepareToRemoveCritter(
+            (CreatureServerSide)legion.getCreatures().get(idx), true, true);
+        LOGGER.info("Zombie post-battle: removed " + creature.getName()
+            + " from " + legion.getMarkerId());
+        return true;
     }
 
     void flee(Legion legion)

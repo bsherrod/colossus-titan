@@ -69,10 +69,7 @@ public class BattleMovementServerSide
                         || (ignoreMobileAllies
                             && bogey.getMarkerId().equals(
                                 critter.getMarkerId()) && !getBattleSS()
-                            .isInContact(bogey, false))
-                        || (critter.getPlayer().hasPower(LauerPower.SMURFS)
-                            && bogey.getMarkerId().equals(
-                                critter.getMarkerId())))
+                            .isInContact(bogey, false)))
                     {
                         entryCost = neighbor.getEntryCost(critter.getType(),
                             reverseDir, cumulativeSlow);
@@ -153,9 +150,17 @@ public class BattleMovementServerSide
             }
             else
             {
+                int speed = critter.getSkill();
+                // Avian: non-native fliers move at speed 4
+                if (critter.isFlier() && !critter.getType().isFlier()
+                    && critter.getPlayer() != null
+                    && critter.getPlayer().hasPower(LauerPower.AVIAN))
+                {
+                    speed = 4;
+                }
                 set = findMoves(critter.getCurrentHex(), critter,
                     critter.isFlier(),
-                    critter.getSkill() - critter.getSlowed(), -1,
+                    speed - critter.getSlowed(), -1,
                     ignoreMobileAllies, true);
             }
         }

@@ -8,6 +8,7 @@ import net.sf.colossus.common.IOptions;
 import net.sf.colossus.common.Options;
 import net.sf.colossus.game.BattleCritter;
 import net.sf.colossus.game.Game;
+import net.sf.colossus.game.LauerPower;
 import net.sf.colossus.variant.BattleHex;
 import net.sf.colossus.variant.CreatureType;
 import net.sf.colossus.variant.MasterBoardTerrain;
@@ -153,7 +154,20 @@ final class BattleMovement
             {
                 CreatureType type = critter.getType();
                 BattleHex hex = critter.getCurrentHex();
-                set = findMoves(hex, type, type.isFlier(), type.getSkill()
+                boolean flies = type.isFlier();
+                int speed = type.getSkill();
+                // Avian: all creatures fly at speed 4
+                if (game.getBattleActiveLegion() != null
+                    && game.getBattleActiveLegion().getPlayer()
+                        .hasPower(LauerPower.AVIAN))
+                {
+                    flies = true;
+                    if (!type.isFlier())
+                    {
+                        speed = 4;
+                    }
+                }
+                set = findMoves(hex, type, flies, speed
                     - critter.getSlowed(), -1, true, ignoreAllies);
             }
         }

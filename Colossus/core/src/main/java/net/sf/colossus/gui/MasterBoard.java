@@ -339,7 +339,7 @@ public final class MasterBoard extends JPanel
 
                 final JPanel panel = new LegionInfoPanel(legion, scale,
                     PANEL_MARGIN, PANEL_PADDING, true, gui.getEffectiveViewMode(),
-                    client.isMyLegion(legion), dubiousAsBlanks, true,
+                    client.canViewLegionContents(legion), dubiousAsBlanks, true,
                     showMarker);
                 add(panel);
                 legionFlyouts[i] = panel;
@@ -1281,7 +1281,7 @@ public final class MasterBoard extends JPanel
             markerPoint.setLocation(markerPoint.x + chitScale, markerPoint.y);
             new ShowLegion(masterFrame, (LegionClientSide)legion, markerPoint,
                 scrollPane, 4 * Scale.get(), viewMode,
-                client.isMyLegion(legion), dubiousAsBlanks, showMarker);
+                client.canViewLegionContents(legion), dubiousAsBlanks, showMarker);
         }
     }
 
@@ -2427,14 +2427,14 @@ public final class MasterBoard extends JPanel
                     {
                         new EditLegion(gui, masterFrame, legion, point,
                             scrollPane, 4 * Scale.get(), viewMode,
-                            client.isMyLegion(legion), dubiousAsBlanks,
+                            client.canViewLegionContents(legion), dubiousAsBlanks,
                             showMarker);
                     }
                     else
                     {
                         new ShowLegion(masterFrame, legion, point, scrollPane,
                             4 * Scale.get(), viewMode,
-                            client.isMyLegion(legion), dubiousAsBlanks,
+                            client.canViewLegionContents(legion), dubiousAsBlanks,
                             showMarker);
                     }
                     return;

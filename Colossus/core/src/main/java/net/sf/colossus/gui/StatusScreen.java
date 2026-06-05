@@ -53,6 +53,7 @@ final class StatusScreen extends KDialog
     private final JLabel[] pointsLabel;
     private final JLabel[] titanLabel;
     private final JLabel[] scoreLabel;
+    private final JLabel[] powersLabel;
 
     private final JLabel activePlayerLabel;
     private final JLabel turnLabel;
@@ -124,7 +125,7 @@ final class StatusScreen extends KDialog
 
         JPanel gridPane = new JPanel();
         contentPane.add(gridPane);
-        gridPane.setLayout(new GridLayout(10, 0));
+        gridPane.setLayout(new GridLayout(11, 0));
         gridPane.setBorder(BorderFactory.createEtchedBorder());
         gridPane.setAlignmentX(SwingConstants.LEFT);
 
@@ -138,6 +139,7 @@ final class StatusScreen extends KDialog
         pointsLabel = new JLabel[numPlayers];
         titanLabel = new JLabel[numPlayers];
         scoreLabel = new JLabel[numPlayers];
+        powersLabel = new JLabel[numPlayers];
 
         gridPane.add(new JLabel("Player"));
 
@@ -169,6 +171,14 @@ final class StatusScreen extends KDialog
             typeLabel[i] = new JLabel();
             typeLabel[i].setOpaque(true);
             gridPane.add(typeLabel[i]);
+        }
+
+        gridPane.add(new JLabel("Powers"));
+        for (int i = 0; i < numPlayers; i++)
+        {
+            powersLabel[i] = new JLabel();
+            powersLabel[i].setOpaque(true);
+            gridPane.add(powersLabel[i]);
         }
 
         gridPane.add(new JLabel("Tower"));
@@ -391,21 +401,31 @@ final class StatusScreen extends KDialog
             titanLabel[i].setText("" + player.getTitanPower());
             scoreLabel[i].setText("" + player.getScore());
 
-            // Show powers as tooltip on player name (hover to see)
+            // Show powers in column and as tooltip
             if (!player.getPowers().isEmpty())
             {
+                StringBuilder powCol = new StringBuilder();
                 StringBuilder powTip = new StringBuilder("<html>Powers:<br>");
                 for (LauerPower p : player.getPowers().getPowers())
                 {
+                    if (powCol.length() > 0)
+                    {
+                        powCol.append(", ");
+                    }
+                    powCol.append(p.getDisplayName());
                     powTip.append("• <b>").append(p.getDisplayName())
                         .append("</b>: ").append(p.getFullDescription())
                         .append("<br><br>");
                 }
                 powTip.append("</html>");
+                powersLabel[i].setText(powCol.toString());
+                powersLabel[i].setToolTipText(powTip.toString());
                 nameLabel[i].setToolTipText(powTip.toString());
             }
             else
             {
+                powersLabel[i].setText("");
+                powersLabel[i].setToolTipText(null);
                 nameLabel[i].setToolTipText(null);
             }
 

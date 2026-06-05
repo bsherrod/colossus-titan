@@ -242,6 +242,11 @@ public class Creature
                 power += (2 * power) / 3;
             }
         }
+        // Marines: +ceil(str/5) extra hits
+        if (player != null && player.hasPower(LauerPower.MARINES))
+        {
+            power += (getPower() + 4) / 5;
+        }
         return power;
     }
 
@@ -386,6 +391,18 @@ public class Creature
 
     public boolean isNativeIn(HazardTerrain terrain)
     {
+        // Lord of Trees: all creatures are native in trees
+        if ("Tree".equals(terrain.getName()) && getPlayer() != null
+            && getPlayer().hasPower(LauerPower.LORD_OF_THE_TREES))
+        {
+            return true;
+        }
+        // Avian hover: hovering creatures are not affected by terrain
+        if (this instanceof net.sf.colossus.server.CreatureServerSide
+            && ((net.sf.colossus.server.CreatureServerSide)this).isHover())
+        {
+            return true;
+        }
         return getType().isNativeIn(terrain);
     }
 
@@ -463,7 +480,7 @@ public class Creature
 
     public boolean isDead()
     {
-        return getHits() >= getPower();
+        return getHits() >= getDefensivePower();
     }
 
     public void setDead(boolean dead)
@@ -514,20 +531,21 @@ public class Creature
         int excess = 0;
         int tmp_hits = getHits();
         int oldhits = tmp_hits;
+        int effectivePower = getDefensivePower();
 
         tmp_hits = (tmp_hits + damage) > 0 ? tmp_hits + damage : 0;
-        if (tmp_hits > getPower())
+        if (tmp_hits > effectivePower)
         {
-            excess = tmp_hits - getPower();
-            tmp_hits = getPower();
+            excess = tmp_hits - effectivePower;
+            tmp_hits = effectivePower;
         }
         LOGGER.log(Level.INFO, "Critter " + getDescription() + ": " + oldhits
             + " + " + damage + " => " + tmp_hits + "; " + excess + " excess");
         // Check for death.
-        if (tmp_hits >= getPower())
+        if (tmp_hits >= effectivePower)
         {
             LOGGER.log(Level.INFO, "Critter " + getDescription()
-                + " is now dead: (hits=" + tmp_hits + " > power=" + getPower()
+                + " is now dead: (hits=" + tmp_hits + " > power=" + effectivePower
                 + ")");
             setDead(true);
         }

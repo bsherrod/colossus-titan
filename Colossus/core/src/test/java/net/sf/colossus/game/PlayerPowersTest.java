@@ -95,7 +95,7 @@ public class PlayerPowersTest extends TestCase
         PlayerPowers original = new PlayerPowers();
         original.addPower(LauerPower.BERSERKER);
         original.addPower(LauerPower.VAMPIRE);
-        original.addPower(LauerPower.SMURFS);
+        original.addPower(LauerPower.NINJA);
 
         String serialized = original.serialize();
         PlayerPowers restored = PlayerPowers.deserialize(serialized);

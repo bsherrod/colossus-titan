@@ -10,7 +10,7 @@ Generated: 2026-05-28T22:52:39Z by `self-nudge-loop/scaffold.sh`.
 
 The loop retires itself when **all** are true:
 
-1. **Build clean.** `cd /Users/sherrodz/src/colossus-titan/Colossus && ant 2>&1 | tail -1` contains "BUILD SUCCESSFUL".
+1. **Build clean.** `cd /Users/sherrodz/src/colossus-titan/Colossus && ant clean jar 2>&1 | tail -1` contains "BUILD SUCCESSFUL".
 2. **Tests pass.** `cd /Users/sherrodz/src/colossus-titan/Colossus && ant test 2>&1 | tail -1` contains "BUILD SUCCESSFUL".
 3. **All plan tasks checked.** `grep -c '^\- \[ \]' /Users/sherrodz/src/colossus-titan/Colossus/docs/lauer-powers-implementation-plan.md` returns `0`.
 4. **Zero stale markers.** `grep -rn "TODO\|FIXME\|XXX\|TBD" /Users/sherrodz/src/colossus-titan/Colossus/docs/lauer-powers-loop` returns empty.
