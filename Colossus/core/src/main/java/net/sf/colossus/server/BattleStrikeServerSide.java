@@ -87,9 +87,11 @@ public class BattleStrikeServerSide
             {
                 dice++;
             }
-            // Non-native striking up a dune hexside: -1
+            // Non-native striking up a dune hexside: -1 (Marines exempt)
             else if (!striker.isNativeAt(HazardHexside.DUNE)
-                && hex.getOppositeHazard(direction) == HazardHexside.DUNE)
+                && hex.getOppositeHazard(direction) == HazardHexside.DUNE
+                && !(striker.getPlayer() != null
+                    && striker.getPlayer().hasPower(LauerPower.MARINES)))
             {
                 dice--;
             }
@@ -178,11 +180,20 @@ public class BattleStrikeServerSide
             int terrainPenalty = hex.getTerrain().getSkillPenaltyStrikeFrom(
                 striker.isNativeIn(hex.getTerrain()),
                 target.isNativeIn(hex.getTerrain()));
-            // Marines: ignore penalties (positive values) but keep bonuses (negative values)
-            if (isMarines && terrainPenalty > 0
-                && !hex.getTerrain().equals(HazardTerrain.VOLCANO))
+            // Marines: ignore penalties (positive values) for non-natives,
+            // AND ignore bonuses (negative values) for non-natives.
+            // Native creatures with Marines still get their native bonuses.
+            if (isMarines && !hex.getTerrain().equals(HazardTerrain.VOLCANO))
             {
-                terrainPenalty = 0;
+                if (terrainPenalty > 0)
+                {
+                    terrainPenalty = 0;
+                }
+                else if (terrainPenalty < 0
+                    && !striker.isNativeIn(hex.getTerrain()))
+                {
+                    terrainPenalty = 0;
+                }
             }
             attackerSkill -= terrainPenalty;
 
