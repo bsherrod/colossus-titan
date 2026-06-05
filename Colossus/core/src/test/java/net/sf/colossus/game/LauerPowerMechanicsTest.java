@@ -46,7 +46,7 @@ public class LauerPowerMechanicsTest extends TestCase
         assertEquals(LauerPower.Status.FULL, LauerPower.MARINES.getStatus());
         assertEquals(LauerPower.Status.FULL,
             LauerPower.UPSIDE_DOWN_CAKE.getStatus());
-        assertEquals(LauerPower.Status.FULL, LauerPower.YAHTZEE.getStatus());
+        assertEquals(LauerPower.Status.PARTIAL, LauerPower.YAHTZEE.getStatus());
         assertEquals(LauerPower.Status.FULL,
             LauerPower.PROPHETESS.getStatus());
         assertEquals(LauerPower.Status.FULL, LauerPower.MULLIGAN.getStatus());
@@ -612,7 +612,6 @@ public class LauerPowerMechanicsTest extends TestCase
             LauerPower.MULLIGAN,
             LauerPower.PROPHETESS,
             LauerPower.UPSIDE_DOWN_CAKE,
-            LauerPower.YAHTZEE,
         };
 
         // Everything else should be PARTIAL (or NOT_IMPLEMENTED)

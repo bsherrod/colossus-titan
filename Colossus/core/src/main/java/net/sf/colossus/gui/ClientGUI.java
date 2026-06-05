@@ -2568,9 +2568,14 @@ public class ClientGUI implements IClientGUI, GUICallbacks
             movementDie = new MovementDie(4 * Scale.get(),
                 MovementDie.getDieImageName(roll));
 
-            // Mulligan/UDC: parse second die from reason string
+            // Mulligan/UDC: show dual dice only for players with those powers
             movementDie2 = null;
-            if (reason != null && reason.contains("Mulligan: "))
+            if (reason != null && reason.contains("Mulligan: ")
+                && client.getActivePlayer() != null
+                && (client.getActivePlayer().hasPower(
+                        net.sf.colossus.game.LauerPower.MULLIGAN)
+                    || client.getActivePlayer().hasPower(
+                        net.sf.colossus.game.LauerPower.UPSIDE_DOWN_CAKE)))
             {
                 try
                 {

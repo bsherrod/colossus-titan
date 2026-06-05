@@ -772,6 +772,57 @@ public final class BattleServerSide extends Battle
         return true;
     }
 
+    /** Ninja: declare death strike during DEATH_STRIKE phase. */
+    boolean declareDeathStrike(CreatureServerSide critter)
+    {
+        if (phase != BattlePhase.DEATH_STRIKE)
+        {
+            LOGGER.warning("declareDeathStrike called outside DEATH_STRIKE phase");
+            return false;
+        }
+        if (critter == null || critter.isDead())
+        {
+            return false;
+        }
+        if (!critter.getPlayer().hasPower(LauerPower.NINJA))
+        {
+            return false;
+        }
+        critter.setDeathStrike(true);
+        LOGGER.info(critter.getType().getName() + " declared death strike");
+        return true;
+    }
+
+    void doneWithDeathStrikeDeclarations()
+    {
+        if (phase != BattlePhase.DEATH_STRIKE)
+        {
+            LOGGER.warning("doneWithDeathStrikeDeclarations outside DEATH_STRIKE");
+            return;
+        }
+        advancePhase();
+    }
+
+    void doneWithHealing()
+    {
+        if (phase != BattlePhase.HEAL)
+        {
+            LOGGER.warning("doneWithHealing outside HEAL phase");
+            return;
+        }
+        advancePhase();
+    }
+
+    void doneWithOgg()
+    {
+        if (phase != BattlePhase.OGG)
+        {
+            LOGGER.warning("doneWithOgg outside OGG phase");
+            return;
+        }
+        advancePhase();
+    }
+
     /**
      * Healer power: source creature heals target creature 1 hit.
      * Returns false if rejected (self-heal, wrong phase, dead, etc).

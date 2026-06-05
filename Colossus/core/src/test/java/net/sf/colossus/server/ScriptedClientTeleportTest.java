@@ -295,4 +295,90 @@ public class ScriptedClientTeleportTest extends TestCase
         @Override
         public int getPointValue() { return 100; }
     }
+
+    /** Legion with a lord — simulates the real game where split legions
+     *  each have at least one lord (Titan or Angel). */
+    private static class TestLegionWithLord extends TestLegion
+    {
+        TestLegionWithLord(Player player, String markerId, MasterHex hex)
+        {
+            super(player, markerId, hex);
+        }
+
+        @Override
+        public int numLords() { return 1; }
+
+        @Override
+        public boolean hasTitan() { return false; }
+    }
+
+    /**
+     * BUG REPRODUCER: Forced 6,6 on turn 1 with real lord-bearing legions.
+     * Simulates the exact scenario the user sees:
+     * - Mulligan turn 1, forced 6,6
+     * - First legion teleports (has lord, roll=6 = normal tower teleport)
+     * - Second legion should ALSO be able to teleport
+     * - Both via tower teleport (lords > 0) AND Mulligan section
+     *
+     * The test explicitly sets legion1.setMoved(true) to match what the
+     * server does after confirming the first move.
+     */
+    public void testForcedSixSixWithLordsSecondLegionCanTeleport()
+    {
+        MasterHex tower = variant.getMasterBoard().getHexByLabel("100");
+        assertNotNull("Tower 100 must exist", tower);
+
+        Player player = new Player(game, "MulliganPlayer", 0);
+        player.getPowers().addPower(LauerPower.MULLIGAN);
+        player.setStartingTower(tower);
+        game.addPlayer(player);
+
+        // Both legions have lords — like the real game after split
+        TestLegionWithLord legion1 = new TestLegionWithLord(player, "Rd01", tower);
+        TestLegionWithLord legion2 = new TestLegionWithLord(player, "Rd02", tower);
+        player.addLegion(legion1);
+        player.addLegion(legion2);
+
+        game.setTurnNumber(1);
+        // Forced 6,6 — what the server now sends
+        simulateTellMovementRoll(6, "rolled 6 (Mulligan: 6 and 6)", player);
+
+        assertEquals(6, game.getMovementRoll());
+        assertEquals(6, game.getMulliganDie1());
+        assertEquals(6, game.getMulliganDie2());
+
+        // Legion 1: should have teleport moves (tower teleport, roll=6, has lord)
+        Set<MasterHex> teleport1 = clientListTeleportMoves(legion1);
+        assertTrue("Legion 1 (with lord) should have teleport on turn 1, roll 6: "
+            + teleport1.size(), teleport1.size() > 0);
+
+        // First legion teleports and moves away
+        MasterHex dest1 = teleport1.iterator().next();
+        legion1.setTeleported(true);
+        legion1.setMoved(true);
+        legion1.setCurrentHex(dest1);
+
+        // KEY STATE: player.hasTeleported() = true now
+        assertTrue("player.hasTeleported() must be true after first teleport",
+            player.hasTeleported());
+
+        // Legion 2: MUST still have teleport moves
+        Set<MasterHex> teleport2 = clientListTeleportMoves(legion2);
+        assertTrue("BUG: Legion 2 (with lord, on tower, roll=6, Mulligan turn 1) "
+            + "MUST have teleport destinations after legion 1 teleported. "
+            + "hasTeleported=" + player.hasTeleported()
+            + " onTower=" + tower.getTerrain().isTower()
+            + " numLords=" + legion2.numLords()
+            + " roll=" + game.getMovementRoll()
+            + " turn=" + game.getTurnNumber()
+            + " Got: " + teleport2.size(),
+            teleport2.size() > 0);
+
+        // Verify teleport2 has destinations distinct from legion1's location
+        Set<MasterHex> availableForSecond = new HashSet<MasterHex>(teleport2);
+        availableForSecond.remove(dest1);
+        assertTrue("Second legion must have at least one destination "
+            + "different from where first went",
+            availableForSecond.size() > 0);
+    }
 }
