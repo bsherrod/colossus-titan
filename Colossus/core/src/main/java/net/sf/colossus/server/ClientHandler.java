@@ -1283,6 +1283,15 @@ final class ClientHandler extends ClientHandlerStub implements IClient
         {
             server.doneWithBattleMoves();
         }
+        else if (method.equals(Constants.doneWithBerserkDeclarations))
+        {
+            server.doneWithBerserkDeclarations();
+        }
+        else if (method.equals(Constants.declareBerserk))
+        {
+            int tag = Integer.parseInt(args.remove(0));
+            server.declareBerserk(tag);
+        }
         else if (method.equals(Constants.doneWithStrikes))
         {
             server.doneWithStrikes();

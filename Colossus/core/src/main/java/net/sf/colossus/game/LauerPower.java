@@ -250,7 +250,7 @@ public enum LauerPower
         "Lady luck is on your side. Whenever one of your creatures [range]strikes, you may reroll"
         + " any dice you want to, and take the second roll of those dice as the final result. If you"
         + " roll the same roll for recruitment you did last turn, you may roll again. "
-        , Status.FULL),
+        , Status.PARTIAL), // PARTIAL: AI auto-takes max, human needs UI to select dice
 
     ZOMBIE("Zombie",
         "You have learned to raise the dead. You may recruit any creature from the dead pile"

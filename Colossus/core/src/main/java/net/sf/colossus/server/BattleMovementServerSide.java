@@ -6,6 +6,7 @@ import java.util.Set;
 
 import net.sf.colossus.common.IOptions;
 import net.sf.colossus.common.Options;
+import net.sf.colossus.game.BattleCritter;
 import net.sf.colossus.game.Game;
 import net.sf.colossus.game.LauerPower;
 import net.sf.colossus.variant.BattleHex;
@@ -77,6 +78,21 @@ public class BattleMovementServerSide
                     else
                     {
                         entryCost = BattleHex.IMPASSIBLE_COST;
+                    }
+
+                    // Marines: ignore terrain slow (cost always 1 unless impassable)
+                    if (entryCost != BattleHex.IMPASSIBLE_COST
+                        && entryCost > 1
+                        && critter.getPlayer().hasPower(LauerPower.MARINES))
+                    {
+                        entryCost = 1;
+                    }
+
+                    // Living Dead: leaving a hex with enemy corpses costs +1
+                    if (entryCost != BattleHex.IMPASSIBLE_COST
+                        && hasEnemyCorpseInHex(hex, critter))
+                    {
+                        entryCost += 1;
                     }
 
                     if ((entryCost != BattleHex.IMPASSIBLE_COST)
@@ -170,5 +186,22 @@ public class BattleMovementServerSide
     BattleServerSide getBattleSS()
     {
         return ((GameServerSide)game).getBattleSS();
+    }
+
+    /** Living Dead: check if hex contains an enemy corpse that slows movement */
+    private boolean hasEnemyCorpseInHex(BattleHex hex,
+        CreatureServerSide mover)
+    {
+        for (BattleCritter c : getBattleSS().getAllCritters())
+        {
+            CreatureServerSide css = (CreatureServerSide)c;
+            if (css.isDead() && css.getCurrentHex() == hex
+                && css.getPlayer() != mover.getPlayer()
+                && css.getPlayer().hasPower(LauerPower.LIVING_DEAD))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 }

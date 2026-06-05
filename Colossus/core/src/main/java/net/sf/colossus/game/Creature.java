@@ -397,6 +397,15 @@ public class Creature
         {
             return true;
         }
+        // Lord of Trees sapling: creature in sapling hex treated as in tree
+        if (getPlayer() != null
+            && getPlayer().hasPower(LauerPower.LORD_OF_THE_TREES)
+            && this instanceof net.sf.colossus.server.CreatureServerSide
+            && ((net.sf.colossus.server.CreatureServerSide)this)
+                .isInTreeOrSapling())
+        {
+            return true;
+        }
         // Avian hover: hovering creatures are not affected by terrain
         if (this instanceof net.sf.colossus.server.CreatureServerSide
             && ((net.sf.colossus.server.CreatureServerSide)this).isHover())

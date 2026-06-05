@@ -175,20 +175,28 @@ abstract public class Movement
             return result;
         }
 
-        if (((movementRoll != 6 || legion.hasMoved() || player.hasTeleported()) && !inAdvance))
+        // Mulligan turn 1: skip ALL guards — both legions may teleport freely
+        boolean mulliganTurn1 = player.hasPower(LauerPower.MULLIGAN)
+            && game.getTurnNumber() == 1;
+
+        if (!mulliganTurn1
+            && ((movementRoll != 6 || legion.hasMoved() || player.hasTeleported()) && !inAdvance))
         {
-            // Mulligan first-turn teleport bypasses the roll=6 requirement
-            if (!(player.hasPower(LauerPower.MULLIGAN)
-                && game.getTurnNumber() == 1))
-            {
-                return result;
-            }
+            LOGGER.info("listTeleportMoves BLOCKED: roll=" + movementRoll
+                + " hasMoved=" + legion.hasMoved()
+                + " hasTeleported=" + player.hasTeleported()
+                + " hasMulligan=" + player.hasPower(LauerPower.MULLIGAN)
+                + " turn=" + game.getTurnNumber());
+            return result;
         }
 
         // Tower teleport
         boolean onTower = hex.getTerrain().isTower();
         int lords = legion.numLords();
         boolean towerOk = towerTeleportAllowed();
+        LOGGER.info("listTeleportMoves tower check: onTower=" + onTower
+            + " lords=" + lords + " towerOk=" + towerOk
+            + " hex=" + hex + " mulliganTurn1=" + mulliganTurn1);
         if (onTower && lords > 0 && towerOk)
         {
             // Mark every unoccupied hex within 6 hexes.

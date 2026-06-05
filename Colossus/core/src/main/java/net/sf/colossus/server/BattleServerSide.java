@@ -60,6 +60,7 @@ public final class BattleServerSide extends Battle
     private boolean attackerEntered;
     private boolean conceded;
     private boolean preStrikeEffectsApplied = false;
+    private boolean berserkBeforeStrikeback = false;
     private boolean fireSpellUsed = false;
 
     /**
@@ -72,8 +73,9 @@ public final class BattleServerSide extends Battle
     private int folkCreaturesRemaining = 0;
     private CreatureType folkCreatureType = null;
 
-    /** Lord of Trees: saplings planted during battle. Each entry: [hexLabel, hp] */
-    private final List<int[]> saplings = new ArrayList<int[]>();
+    /** Lord of Trees: saplings planted during battle. Maps hex to HP. */
+    private final java.util.Map<BattleHex, Integer> saplings =
+        new java.util.HashMap<BattleHex, Integer>();
     private static final int MAX_SAPLINGS = 3;
 
     private final BattleMovementServerSide battleMovement;
@@ -417,8 +419,16 @@ public final class BattleServerSide extends Battle
 
             else if (phase == BattlePhase.BERSERK)
             {
-                // After BERSERK declaration, advance to FIGHT
-                setBattlePhase(BattlePhase.FIGHT);
+                // After BERSERK declaration, advance to FIGHT or STRIKEBACK
+                if (berserkBeforeStrikeback)
+                {
+                    berserkBeforeStrikeback = false;
+                    setBattlePhase(BattlePhase.STRIKEBACK);
+                }
+                else
+                {
+                    setBattlePhase(BattlePhase.FIGHT);
+                }
                 LOGGER.log(Level.INFO, "Battle phase advances to " + phase);
                 if (conceded)
                 {
@@ -438,24 +448,66 @@ public final class BattleServerSide extends Battle
                 activeLegionTag = (activeLegionTag == LegionTags.ATTACKER) ? LegionTags.DEFENDER
                     : LegionTags.ATTACKER;
                 preStrikeEffectsApplied = false;
-                setBattlePhase(BattlePhase.STRIKEBACK);
-                LOGGER.log(Level.INFO, "Battle phase advances to " + phase);
-                if (conceded)
+                // Berserker: insert BERSERK before STRIKEBACK if the
+                // striking-back player has Berserker power
+                if (getActiveLegion() != null
+                    && getActiveLegion().getPlayer()
+                        .hasPower(LauerPower.BERSERKER))
                 {
-                    LOGGER
-                        .log(Level.INFO, "Conceded - setting again to true.");
-                    again = true;
+                    berserkBeforeStrikeback = true;
+                    setBattlePhase(BattlePhase.BERSERK);
+                    LOGGER.info("Battle phase advances to BERSERK"
+                        + " (before strikeback)");
+                    again = setupBerserk();
                 }
                 else
                 {
-                    again = setupFight();
+                    setBattlePhase(BattlePhase.STRIKEBACK);
+                    LOGGER.log(Level.INFO,
+                        "Battle phase advances to " + phase);
+                    if (conceded)
+                    {
+                        LOGGER.log(Level.INFO,
+                            "Conceded - setting again to true.");
+                        again = true;
+                    }
+                    else
+                    {
+                        again = setupFight();
+                    }
                 }
             }
 
             else if (phase == BattlePhase.STRIKEBACK)
             {
                 removeDeadCreatures();
+                // Expire Healer temp hits at end of strike phase
+                for (BattleCritter c : getAllCritters())
+                {
+                    CreatureServerSide critter = (CreatureServerSide)c;
+                    if (critter.getTempHits() > 0)
+                    {
+                        LOGGER.log(Level.INFO, critter.getDescription()
+                            + " temp hits expired (" + critter.getTempHits()
+                            + ")");
+                        critter.setTempHits(0);
+                    }
+                }
                 checkForElimination();
+                // Ninja: insert NINJA_MOVE if eligible creatures exist
+                if (!isOver() && hasNinjaMoveEligible())
+                {
+                    setBattlePhase(BattlePhase.NINJA_MOVE);
+                    again = setupNinjaMove();
+                }
+                else
+                {
+                    advanceTurn();
+                }
+            }
+
+            else if (phase == BattlePhase.NINJA_MOVE)
+            {
                 advanceTurn();
             }
 
@@ -559,6 +611,65 @@ public final class BattleServerSide extends Battle
 
     private boolean setupMove()
     {
+        // Lord of Trees: regen floor(str/6) hits for creatures in tree/sapling
+        LegionServerSide activeLegion = getActiveLegion();
+        if (activeLegion != null
+            && activeLegion.getPlayer().hasPower(LauerPower.LORD_OF_THE_TREES))
+        {
+            for (CreatureServerSide critter : activeLegion.getCreatures())
+            {
+                if (!critter.isDead() && critter.getHits() > 0
+                    && critter.isInTreeOrSapling())
+                {
+                    int regen = critter.getPower() / 6;
+                    if (regen > 0)
+                    {
+                        int newHits = Math.max(0, critter.getHits() - regen);
+                        critter.setHits(newHits);
+                        LOGGER.info(critter.getDescription()
+                            + " regenerated " + regen + " in tree");
+                    }
+                }
+            }
+        }
+        // The Folks: spawn one folk creature off-board each movement phase
+        if (activeLegion != null
+            && activeLegion.getPlayer().hasPower(LauerPower.THE_FOLKS)
+            && folkCreaturesRemaining > 0 && folkCreatureType != null)
+        {
+            CreatureServerSide folk = new CreatureServerSide(
+                folkCreatureType, activeLegion, getGame());
+            activeLegion.getCreatures().add(folk);
+            server.allPlaceNewChit(folk);
+            folkCreaturesRemaining--;
+            LOGGER.info("The Folks: spawned " + folkCreatureType.getName()
+                + " (" + folkCreaturesRemaining + " remaining)");
+        }
+        server.allSetupBattleMove();
+        return false;
+    }
+
+    /** Ninja: check if active player has unengaged creatures eligible for post-strike move */
+    private boolean hasNinjaMoveEligible()
+    {
+        LegionServerSide legion = getActiveLegion();
+        if (legion == null || !legion.getPlayer().hasPower(LauerPower.NINJA))
+        {
+            return false;
+        }
+        for (CreatureServerSide critter : legion.getCreatures())
+        {
+            if (!critter.isDead() && !isInContact(critter, false)
+                && !critter.hasMoved())
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean setupNinjaMove()
+    {
         server.allSetupBattleMove();
         return false;
     }
@@ -576,21 +687,30 @@ public final class BattleServerSide extends Battle
         {
             return true;
         }
-        // Auto-declare berserk for creatures at 1 hit remaining
-        // (heuristic — creature about to die anyway gets double strike)
-        // TODO(task 218): For human players, show UI dialog instead of auto.
-        // Until then, all players use the AI heuristic and auto-advance.
-        for (CreatureServerSide critter : legion.getCreatures())
+
+        Player player = legion.getPlayer();
+
+        if (player.isAI())
         {
-            if (!critter.isDead() && critter.getHits() > 0
-                && critter.getPower() - critter.getHits() <= 1)
+            // AI: auto-declare berserk for creatures at 1 hit remaining
+            for (CreatureServerSide critter : legion.getCreatures())
             {
-                critter.setBerserk(true);
-                LOGGER.info("Auto-berserks " + critter.getType()
-                    .getName() + " (1 hit remaining)");
+                if (!critter.isDead() && critter.getHits() > 0
+                    && critter.getDefensivePower() - critter.getHits() <= 1)
+                {
+                    critter.setBerserk(true);
+                    LOGGER.info("Auto-berserks " + critter.getType()
+                        .getName() + " (1 hit remaining)");
+                }
             }
+            return true; // AI auto-advances
         }
-        return true; // auto-advance to FIGHT (UI dialog not yet wired)
+        else
+        {
+            // Human: notify client of BERSERK phase, wait for declarations
+            server.allSetupBattleFight();
+            return false;
+        }
     }
 
     /**
@@ -632,6 +752,148 @@ public final class BattleServerSide extends Battle
         critter.setBerserk(true);
         LOGGER.info(critter.getType().getName() + " declared berserk");
         return true;
+    }
+
+    /**
+     * Toggle berserk off for a creature. Only valid during BERSERK phase.
+     */
+    boolean undeclareBerserk(CreatureServerSide critter)
+    {
+        if (phase != BattlePhase.BERSERK)
+        {
+            return false;
+        }
+        if (critter == null || !critter.isBerserk())
+        {
+            return false;
+        }
+        critter.setBerserk(false);
+        LOGGER.info(critter.getType().getName() + " undeclared berserk");
+        return true;
+    }
+
+    /**
+     * Healer power: source creature heals target creature 1 hit.
+     * Returns false if rejected (self-heal, wrong phase, dead, etc).
+     */
+    boolean doHeal(CreatureServerSide source, CreatureServerSide target)
+    {
+        if (phase != BattlePhase.HEAL)
+        {
+            LOGGER.warning("doHeal called outside HEAL phase");
+            return false;
+        }
+        if (source == null || target == null)
+        {
+            return false;
+        }
+        if (source == target)
+        {
+            LOGGER.warning("A creature cannot heal itself");
+            return false;
+        }
+        if (source.isDead() || target.isDead())
+        {
+            return false;
+        }
+        if (!source.getPlayer().hasPower(LauerPower.HEALER))
+        {
+            return false;
+        }
+        if (source.getPlayer() != target.getPlayer())
+        {
+            LOGGER.warning("Cannot heal opponent's creature");
+            return false;
+        }
+        // Only lords can heal lords
+        if (target.isLord() && !source.isLord())
+        {
+            LOGGER.warning("Only lords can heal lords");
+            return false;
+        }
+        // Apply heal or overheal
+        if (target.getHits() > 0)
+        {
+            target.setHits(target.getHits() - 1);
+            LOGGER.info(target.getDescription() + " healed by "
+                + source.getDescription());
+        }
+        else
+        {
+            target.setTempHits(target.getTempHits() + 1);
+            LOGGER.info(target.getDescription() + " overhealed by "
+                + source.getDescription());
+        }
+        return true;
+    }
+
+    /**
+     * Lord of Trees: plant a sapling on the given hex.
+     * Validates: max 3 saplings, no adjacent saplings, player has power.
+     * HP = planting creature's power.
+     */
+    boolean plantSapling(CreatureServerSide planter, BattleHex hex)
+    {
+        if (!planter.getPlayer().hasPower(LauerPower.LORD_OF_THE_TREES))
+        {
+            return false;
+        }
+        if (saplings.size() >= MAX_SAPLINGS)
+        {
+            LOGGER.warning("Cannot plant sapling: max " + MAX_SAPLINGS);
+            return false;
+        }
+        if (saplings.containsKey(hex))
+        {
+            LOGGER.warning("Cannot plant sapling: hex already has one");
+            return false;
+        }
+        // No adjacent saplings allowed
+        for (int i = 0; i < 6; i++)
+        {
+            BattleHex neighbor = hex.getNeighbor(i);
+            if (neighbor != null && saplings.containsKey(neighbor))
+            {
+                LOGGER.warning("Cannot plant sapling: adjacent to existing");
+                return false;
+            }
+        }
+        saplings.put(hex, planter.getPower());
+        LOGGER.info("Sapling planted at " + hex.getLabel()
+            + " with HP " + planter.getPower());
+        return true;
+    }
+
+    /** Check if a hex has a sapling */
+    boolean hasSapling(BattleHex hex)
+    {
+        return saplings.containsKey(hex);
+    }
+
+    /**
+     * Apply damage to a sapling. Returns true if sapling was destroyed.
+     */
+    boolean damageSapling(BattleHex hex, int damage)
+    {
+        if (!saplings.containsKey(hex))
+        {
+            return false;
+        }
+        int hp = saplings.get(hex) - damage;
+        if (hp <= 0)
+        {
+            saplings.remove(hex);
+            LOGGER.info("Sapling at " + hex.getLabel() + " destroyed");
+            return true;
+        }
+        saplings.put(hex, hp);
+        LOGGER.info("Sapling at " + hex.getLabel() + " damaged, HP=" + hp);
+        return false;
+    }
+
+    int getSaplingHp(BattleHex hex)
+    {
+        return saplings.getOrDefault(hex, 0);
     }
 
     private boolean setupFight()
@@ -981,15 +1243,25 @@ public final class BattleServerSide extends Battle
 
             // Healer power: heal own creatures before strike phase
             // Each friendly creature with hits > 0 gets 1 hit healed
+            // If already at full HP, grant 1 temp hit (overheal)
             for (BattleCritter c : getAllCritters())
             {
                 CreatureServerSide critter = (CreatureServerSide)c;
                 if (critter.getPlayer().hasPower(LauerPower.HEALER)
-                    && critter.getHits() > 0 && !critter.isDead())
+                    && !critter.isDead())
                 {
-                    critter.setHits(critter.getHits() - 1);
-                    LOGGER.log(Level.INFO, critter.getDescription()
-                        + " healed 1 hit by Healer power");
+                    if (critter.getHits() > 0)
+                    {
+                        critter.setHits(critter.getHits() - 1);
+                        LOGGER.log(Level.INFO, critter.getDescription()
+                            + " healed 1 hit by Healer power");
+                    }
+                    else
+                    {
+                        critter.setTempHits(critter.getTempHits() + 1);
+                        LOGGER.log(Level.INFO, critter.getDescription()
+                            + " gained 1 temp hit from Healer overheal");
+                    }
                 }
             }
 
@@ -1381,7 +1653,8 @@ public final class BattleServerSide extends Battle
         {
             for (CreatureServerSide critter : legion.getCreatures())
             {
-                if (!critter.hasStruck() && isInContact(critter, false))
+                if (!critter.isDead() && !critter.hasStruck()
+                    && isInContact(critter, false))
                 {
                     return true;
                 }

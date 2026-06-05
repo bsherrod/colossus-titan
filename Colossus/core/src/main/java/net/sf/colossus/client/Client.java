@@ -1567,6 +1567,19 @@ public final class Client implements IClient, IOracle, IVariant,
         server.doneWithBattleMoves();
     }
 
+    public void doneWithBerserkDeclarations()
+    {
+        // Send individual berserk declarations for each marked creature
+        for (BattleUnit unit : getActiveBattleUnits())
+        {
+            if (unit.isBerserk() && !unit.isDead())
+            {
+                server.declareBerserk(unit.getTag());
+            }
+        }
+        server.doneWithBerserkDeclarations();
+    }
+
     // TODO move to Game or Battle
     public List<BattleUnit> getActiveBattleUnits()
     {
@@ -2355,20 +2368,20 @@ public final class Client implements IClient, IOracle, IVariant,
         }
         else if (reason.equals(Constants.doSplit))
         {
+            // Clear splitRequestSent for all pending legions so the
+            // player can retry. Without this, a NAK'd split permanently
+            // blocks the parent legion from ever splitting again.
+            for (Legion leg : getOwningPlayer().getPendingSplitLegions())
+            {
+                leg.setSplitRequestSent(false);
+            }
+
             showMessageDialog(errmsg);
 
             // if AI just got NAK for split, there's no point for
             // kickSplit again. Instead, let's just be DoneWithSplits.
             if (isMyTurn() && autoplay.autoSplit() && !game.isGameOver())
             {
-                // XXX This may cause advancePhance illegally messages,
-                // if e.g. SimpleAI fires two splits, both gets rejected,
-                // and it responds with dineWithSplits two times.
-                // But this whole situation should normally never happen, did
-                // happen now only because of server/client data regarding
-                // available markers was out of sync and then as reaction
-                // to nak for didSplit do kickSplit() did just end in an
-                // endless loop. Now perhaps 2 error messages, but no hang.
                 doneWithSplits();
             }
         }
@@ -2979,7 +2992,33 @@ public final class Client implements IClient, IOracle, IVariant,
     {
         getBattleCS().setupBattleFight(battlePhase, battleActivePlayer);
         gui.actOnSetupBattleFight();
-        doAutoStrikes();
+        if (battlePhase == BattlePhase.BERSERK)
+        {
+            // Auto-handle BERSERK for autoplay/sansLord human players
+            if (isMyBattlePhase()
+                && (isAutoplayActive() || sansLordAutoBattleApplies()))
+            {
+                autoBerserkAndDone();
+            }
+        }
+        else
+        {
+            doAutoStrikes();
+        }
+    }
+
+    /** Auto-declare berserk for at-risk creatures, then advance. */
+    private void autoBerserkAndDone()
+    {
+        for (BattleUnit unit : getActiveBattleUnits())
+        {
+            if (!unit.isDead()
+                && unit.getType().getPower() - unit.getHits() <= 1)
+            {
+                unit.setBerserk(true);
+            }
+        }
+        doneWithBerserkDeclarations();
     }
 
     /** Create marker if necessary, and place it in hexLabel. */
@@ -3334,7 +3373,8 @@ public final class Client implements IClient, IOracle, IVariant,
         }
 
         // Legion must be tall enough to split.
-        if (parent.getHeight() < 4)
+        int minPreSplit = getOwningPlayer().hasPower(LauerPower.NINJA) ? 2 : 4;
+        if (parent.getHeight() < minPreSplit)
         {
             gui.showMessageDialogAndWait("Legion is too short to split");
             kickSplit();
@@ -4044,15 +4084,28 @@ public final class Client implements IClient, IOracle, IVariant,
     public Set<MasterHex> listTeleportMoves(Legion legion)
     {
         MasterHex hex = legion.getCurrentHex();
+        Player player = legion.getPlayer();
+        LOGGER.info("CLIENT listTeleportMoves: legion=" + legion.getMarkerId()
+            + " hex=" + hex + " roll=" + game.getMovementRoll()
+            + " hasTeleported=" + player.hasTeleported()
+            + " numLords=" + legion.numLords()
+            + " onTower=" + (hex != null && hex.getTerrain().isTower())
+            + " hasPower(MULLIGAN)=" + player.hasPower(LauerPower.MULLIGAN)
+            + " turnNumber=" + game.getTurnNumber()
+            + " mulliganDice=" + game.getMulliganDie1() + "," + game.getMulliganDie2());
         Set<MasterHex> result = movement.listTeleportMoves(legion, hex,
             game.getMovementRoll());
+        LOGGER.info("CLIENT listTeleportMoves result size (primary roll): " + result.size());
         // Mulligan/UDC: also include moves for the other die value
         if (game.getMulliganDie1() > 0)
         {
             int otherRoll = (game.getMovementRoll() == game.getMulliganDie1())
                 ? game.getMulliganDie2() : game.getMulliganDie1();
-            result.addAll(movement.listTeleportMoves(legion, hex, otherRoll));
+            Set<MasterHex> altResult = movement.listTeleportMoves(legion, hex, otherRoll);
+            LOGGER.info("CLIENT listTeleportMoves result size (alt roll=" + otherRoll + "): " + altResult.size());
+            result.addAll(altResult);
         }
+        LOGGER.info("CLIENT listTeleportMoves FINAL result size: " + result.size());
         return result;
     }
 

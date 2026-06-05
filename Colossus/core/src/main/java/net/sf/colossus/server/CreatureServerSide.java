@@ -71,6 +71,7 @@ public class CreatureServerSide extends Creature implements BattleCritter
     private boolean possessed; // Demon: this creature has a demon riding it
     private int demonStrength; // Demon: separate HP pool for the demon
     private boolean inStasis; // Vampire: Titan in stasis (left battle)
+    private int tempHits; // Healer overheal: absorbs damage before real hits
 
     public CreatureServerSide(CreatureType creature, Legion legion,
         GameServerSide game)
@@ -180,6 +181,16 @@ public class CreatureServerSide extends Creature implements BattleCritter
         this.inStasis = stasis;
     }
 
+    public int getTempHits()
+    {
+        return tempHits;
+    }
+
+    public void setTempHits(int tempHits)
+    {
+        this.tempHits = tempHits;
+    }
+
     /** Lord of Trees: creature is in a tree if hex is Tree terrain,
      *  OR if a friendly Titan with LORD_OF_THE_TREES is in the same hex. */
     public boolean isInTreeOrSapling()
@@ -201,6 +212,12 @@ public class CreatureServerSide extends Creature implements BattleCritter
                     return true;
                 }
             }
+        }
+        // Sapling planted in this hex counts as tree
+        if (battle != null && ((BattleServerSide)battle).hasSapling(
+            getCurrentHex()))
+        {
+            return true;
         }
         return false;
     }
@@ -328,32 +345,30 @@ public class CreatureServerSide extends Creature implements BattleCritter
 
         // Berserker power: if creature is marked berserk, it gets a second
         // strike and then always dies.
-        // AI auto-marks as berserk when 1 hit remaining (about to die anyway).
         if (getPlayer().hasPower(LauerPower.BERSERKER) && !isDead())
         {
-            if (!berserk && (getDefensivePower() - getHits()) <= 1)
-            {
-                berserk = true; // AI auto-berserk when about to die
-            }
             if (berserk)
             {
                 strike2(target, dice, strikeNumber);
                 setDead(true);
+                // Notify clients that this striker died (self-kill)
+                game.getServer().allTellStrikeResults(this, this, 0,
+                    new java.util.ArrayList<String>(), 0, 0,
+                    new java.util.HashSet<String>());
                 LOGGER.info(getDescription() + " went berserk (2 strikes) and died");
             }
         }
 
         // Ninja death strike: creature dies after striking
-        // AI auto-marks when 1 hit remaining
         if (getPlayer().hasPower(LauerPower.NINJA) && !isDead())
         {
-            if (!deathStrike && (getDefensivePower() - getHits()) <= 1)
-            {
-                deathStrike = true; // AI auto-death-strike when about to die
-            }
             if (deathStrike)
             {
                 setDead(true);
+                // Notify clients that this striker died (self-kill)
+                game.getServer().allTellStrikeResults(this, this, 0,
+                    new java.util.ArrayList<String>(), 0, 0,
+                    new java.util.HashSet<String>());
                 LOGGER.info(getDescription() + " used death strike and died");
             }
         }
@@ -609,6 +624,28 @@ public class CreatureServerSide extends Creature implements BattleCritter
                     damage = avgDamage;
                 }
             }
+            // UDC: may use 7-each die result (AI: take max of normal vs flipped)
+            if (attackerPlayer.hasPower(LauerPower.UPSIDE_DOWN_CAKE))
+            {
+                // Flipped hits: each die showing X becomes 7-X
+                // Count flipped hits >= strikeNumber
+                int flippedDamage = 0;
+                for (String roll : rolls)
+                {
+                    try
+                    {
+                        int val = 7 - Integer.parseInt(roll);
+                        if (val >= strikeNumber) flippedDamage++;
+                    }
+                    catch (NumberFormatException e) { /* skip */ }
+                }
+                if (flippedDamage > damage)
+                {
+                    LOGGER.info("UDC flipped dice: " + damage
+                        + " -> " + flippedDamage);
+                    damage = flippedDamage;
+                }
+            }
         }
 
 
@@ -700,5 +737,20 @@ public class CreatureServerSide extends Creature implements BattleCritter
     public int hashCode()
     {
         return getType().hashCode();
+    }
+
+    @Override
+    public int adjustHits(int damage)
+    {
+        if (damage > 0 && tempHits > 0)
+        {
+            int absorbed = Math.min(damage, tempHits);
+            tempHits -= absorbed;
+            damage -= absorbed;
+            LOGGER.log(Level.INFO, getDescription()
+                + " tempHits absorbed " + absorbed + " damage, "
+                + tempHits + " temp remaining");
+        }
+        return super.adjustHits(damage);
     }
 }

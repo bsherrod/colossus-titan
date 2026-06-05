@@ -1143,6 +1143,16 @@ final class SocketClientThread extends Thread implements IServer,
         sendToServer(Constants.doneWithBattleMoves);
     }
 
+    public void doneWithBerserkDeclarations()
+    {
+        sendToServer(Constants.doneWithBerserkDeclarations);
+    }
+
+    public void declareBerserk(int tag)
+    {
+        sendToServer(Constants.declareBerserk + sep + tag);
+    }
+
     public void doneWithStrikes()
     {
         sendToServer(Constants.doneWithStrikes);

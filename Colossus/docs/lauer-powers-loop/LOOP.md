@@ -66,35 +66,26 @@ curl -X POST "http://127.0.0.1:7777/api/autonudge?token=$TOKEN" \
 
 ```
 Continue the lauer-powers loop.
-Definition of Done: /Users/sherrodz/src/colossus-titan/Colossus/docs/lauer-powers-loop/LOOP.md §Definition of Done.
+BOARD=/Users/sherrodz/src/colossus-titan/Colossus/docs/lauer-powers-loop/board
 
-STOP / EXIT CHECKS (every cycle, in order, before anything else):
-1. If /Users/sherrodz/src/colossus-titan/Colossus/docs/lauer-powers-loop/STOP exists: call autonudge_stop(reason="sentinel"), post "Loop halted by sentinel.", do nothing else.
-2. If the Definition-of-Done criteria in LOOP.md are all met: call autonudge_stop(reason="DoD met"), post the DoD checklist with ticks, stop.
+STOP CHECK:
+1. If /Users/sherrodz/src/colossus-titan/Colossus/docs/lauer-powers-loop/STOP exists: call autonudge_stop(reason="sentinel"), do nothing else.
 
-BOARD (skip this block if no kanban-md board in use):
-   BOARD=/Users/sherrodz/src/colossus-titan/Colossus/docs/lauer-powers-loop/board
-3. kanban-md --dir $BOARD list --status todo --json
-4. kanban-md --dir $BOARD pick --assignee loop-<cycle_n>
-5. If pick returns nothing and a dep-met backlog card exists: kanban-md --dir $BOARD move <id> --status todo ; then pick.
-6. If everything blocked AND you already posted a blocker this arming: autonudge_stop(reason="all blocked"), stop.
+PICK:
+2. kanban-md --dir $BOARD list --status todo --json | pick first by ID
+3. kanban-md --dir $BOARD move <id> in-progress
+4. If no todo tasks: autonudge_stop(reason="board drained"), stop.
 
-EXECUTE (<=5 tool calls per cycle, hard cap):
-7. Read the one spec file for the claimed task.
-8. Do ONE atomic thing: draft a fix, write a test, run a test, invoke one SOP. Never all at once.
-9. NEVER git push. NEVER destructive ops. NEVER reply to real production tickets — sandbox / read-only only.
-10. Midway auth: http.cookiejar.MozillaCookieJar(path).load() + urllib opener, OR curl -b ~/.midway/cookie -f -s. NEVER read ~/.midway/cookie as text. NEVER echo cookie contents in any error — scrub exceptions to type(e).__name__.
+EXECUTE (<=5 tool calls):
+5. Do ONE atomic thing for the task.
+6. NEVER git push. NEVER destructive ops.
+7. For UI tasks: consult docs/lauer-powers-loop/ui-designs.md.
 
-RECORD:
-11. Append progress to the claimed card (kanban-md edit --add-body) or to a Cycle Log section in LOOP.md.
-12. DM the owner a tick via send_message (owner DM is default — no channel arg). Template:
-    "🔁 lauer-powers cycle-<n> · <task-id>  Done: <1-line>  Next: <1-line>  Status: <col>"
-    One DM per productive cycle. Skip halted / no-op cycles.
-13. If task complete: handoff to Review (NOT Done — human approves Done).
+DONE:
+8. kanban-md --dir $BOARD move <id> done
+9. DM owner via send_message: "🔁 lauer-powers cycle-<n> · #<id>  Done: <1-line>  Next: <next-id>"
 
-STAY SILENT in the chat panel unless: DoD met, hard blocker needs user decision, or STOP sentinel tripped.
-(send_message DMs are expected every productive cycle — that is the progress channel, not the chat.)
-One cycle = one step.
+One cycle = one task.
 ```
 
 ---
@@ -120,7 +111,7 @@ One cycle = one step.
 5. If using kanban-md, `kanban-md` is the only board writer.
 6. Test execution lives in a sandbox/DevSpace, not the local workspace.
 7. One cycle, one step.
-8. Human approval required for Done. Loop only moves cards to Review.
+8. Loop moves cards directly to done.
 9. `max_cycles: 30` cap every arming.
 10. `stop_sentinel_path` never blank at loop start.
 

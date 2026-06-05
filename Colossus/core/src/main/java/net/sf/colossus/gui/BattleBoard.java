@@ -492,6 +492,14 @@ public final class BattleBoard extends KFrame
                     setWaitCursor();
                     gui.getCallbackHandler().doneWithBattleMoves();
                 }
+                else if (getGame().isBattlePhase(BattlePhase.BERSERK))
+                {
+                    unselectAllHexes();
+                    String phase = getGame().getBattlePhase().toString();
+                    infoPanel.setOwnPhaseDone(phase, false);
+                    setWaitCursor();
+                    gui.getClient().doneWithBerserkDeclarations();
+                }
                 else if (isFightPhase())
                 {
                     unselectAllHexes();
@@ -892,6 +900,20 @@ public final class BattleBoard extends KFrame
         if (isMovePhase())
         {
             highlightMoves(battleChit.getBattleUnit());
+        }
+        else if (getGame().isBattlePhase(BattlePhase.BERSERK))
+        {
+            // Toggle berserk mark on own creatures during BERSERK phase
+            boolean ownChit = battleChit.getBattleUnit().getLegion()
+                .getPlayer().equals(getGame().getBattleActivePlayer());
+            if (ownChit)
+            {
+                BattleUnit unit = battleChit.getBattleUnit();
+                unit.setBerserk(!unit.isBerserk());
+                battleChit.repaint();
+                battleMap.repaint();
+            }
+            selectedCritterTag = -1;
         }
         else if (isFightPhase())
         {

@@ -43,6 +43,7 @@ public final class BattleUnit implements BattleCritter
     private boolean moved;
     private boolean struck;
     private boolean dead;
+    private boolean berserk;
 
     /** Listeners to be informed when something changes, e.g. right now only
      *  GUIBattleChit that needs to repaint if dead or hits change.
@@ -147,6 +148,17 @@ public final class BattleUnit implements BattleCritter
     public boolean isDead()
     {
         return dead;
+    }
+
+    public boolean isBerserk()
+    {
+        return berserk;
+    }
+
+    public void setBerserk(boolean berserk)
+    {
+        this.berserk = berserk;
+        notifyListeners();
     }
 
     public BattleHex getCurrentHex()

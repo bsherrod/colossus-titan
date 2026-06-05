@@ -211,6 +211,14 @@ public class GUIBattleChit extends Chit
             g2.drawRect(outerRect.x, outerRect.y, outerRect.width,
                 outerRect.height);
         }
+        // Berserk visual: thick red border when creature is marked berserk
+        if (battleUnit != null && battleUnit.isBerserk() && !isDead())
+        {
+            g2.setColor(Color.RED);
+            g2.setStroke(borderStroke);
+            g2.drawRect(rect.x + 1, rect.y + 1,
+                rect.width - 2, rect.height - 2);
+        }
     }
 
     @Override

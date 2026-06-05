@@ -49,6 +49,10 @@ public interface IServer
 
     public void doneWithBattleMoves();
 
+    public void doneWithBerserkDeclarations();
+
+    public void declareBerserk(int tag);
+
     public void doneWithStrikes();
 
     public void acquireAngel(Legion legion, CreatureType angelType);

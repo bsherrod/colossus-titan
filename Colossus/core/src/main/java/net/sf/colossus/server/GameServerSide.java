@@ -1249,18 +1249,29 @@ public class GameServerSide extends Game
         // AI uses the higher of the two.
         if (player.hasPower(LauerPower.MULLIGAN))
         {
-            int secondRoll = ((PlayerServerSide)player).makeMovementRoll();
-            // If equal, reroll the second die until different
-            while (secondRoll == roll)
+            // Turn 1: force 6,6 — all groups teleport, making the rule
+            // unambiguous and working around client-side display bugs.
+            if (getTurnNumber() == 1)
             {
-                secondRoll = ((PlayerServerSide)player).makeMovementRoll();
+                roll = 6;
+                ((PlayerServerSide)player).setMovementRoll(6);
+                player.setMulliganRolls(6, 6);
             }
-            // Store both rolls for per-group choice (future UI)
-            player.setMulliganRolls(roll, secondRoll);
-            // AI picks the higher
-            if (secondRoll > roll)
+            else
             {
-                roll = secondRoll;
+                int secondRoll = ((PlayerServerSide)player).makeMovementRoll();
+                // If equal, reroll the second die until different
+                while (secondRoll == roll)
+                {
+                    secondRoll = ((PlayerServerSide)player).makeMovementRoll();
+                }
+                // Store both rolls for per-group choice (future UI)
+                player.setMulliganRolls(roll, secondRoll);
+                // AI picks the higher
+                if (secondRoll > roll)
+                {
+                    roll = secondRoll;
+                }
             }
         }
         // Ninja: may reroll movement die until a different number is rolled.
@@ -2880,6 +2891,66 @@ public class GameServerSide extends Game
             // Zombie: may remove non-lords from group at end of battle
             // (same time as raising, before recruiting/angel summoning)
             // AI does not exercise this option.
+
+            // Living Dead: revive enemy corpses from the battle
+            // Budget: point value <= 50% of winning legion's original value
+            // Respects stack limit. Lords cannot be revived.
+            if (battleWinner.getPlayer().hasPower(LauerPower.LIVING_DEAD)
+                && !battleDead.isEmpty())
+            {
+                int maxHeight = battleWinner.getPlayer().getMaxLegionHeight();
+                int legionValue = battleWinner.getPointValue();
+                int reviveBudget = legionValue / 2;
+                int spent = 0;
+                for (CreatureType ct : battleDead)
+                {
+                    if (((LegionServerSide)battleWinner).getHeight() >= maxHeight)
+                    {
+                        break;
+                    }
+                    if (ct.isLord())
+                    {
+                        continue;
+                    }
+                    int cost = ct.getPointValue();
+                    if (spent + cost > reviveBudget)
+                    {
+                        continue;
+                    }
+                    ((LegionServerSide)battleWinner).addCreature(ct, false);
+                    spent += cost;
+                    LOGGER.info("Living Dead revived enemy " + ct
+                        + " (cost " + cost + ", budget " + spent
+                        + "/" + reviveBudget + ")");
+                }
+            }
+
+            // The Folks: trim extra folk creatures down to legal stack size
+            // Remove weakest first
+            if (battleWinner.getPlayer().hasPower(LauerPower.THE_FOLKS))
+            {
+                int maxHeight = battleWinner.getPlayer().getMaxLegionHeight();
+                while (((LegionServerSide)battleWinner).getHeight() > maxHeight)
+                {
+                    // Remove weakest non-lord creature
+                    CreatureServerSide weakest = null;
+                    for (CreatureServerSide c
+                        : ((LegionServerSide)battleWinner).getCreatures())
+                    {
+                        if (!c.isDead() && !c.isLord()
+                            && (weakest == null
+                                || c.getPointValue() < weakest.getPointValue()))
+                        {
+                            weakest = c;
+                        }
+                    }
+                    if (weakest == null) break;
+                    ((LegionServerSide)battleWinner).getCreatures()
+                        .remove(weakest);
+                    LOGGER.info("The Folks: trimmed " + weakest.getType()
+                        + " post-battle");
+                }
+            }
 
             // Remove battle info from winning legion and its creatures.
             battleWinner.clearBattleInfo();

@@ -184,4 +184,99 @@ public class ScriptedGameRunnerTest extends TestCase
             + (severeMessages.isEmpty() ? "none" : severeMessages.get(0)),
             0, severeMessages.size());
     }
+
+    // ============================================================
+    // Berserker Human-Player Tests (full UI path)
+    // ============================================================
+
+    /**
+     * Run a game where player 0 is a Human type (with autoplay) having
+     * the specified power. This exercises the real human-player code path:
+     * setupBerserk returns false, client notified, client auto-handles.
+     */
+    private void runHumanGameWithPowers(String humanPowers, String aiPowers)
+    {
+        Options.setStartupTest(true);
+        System.setProperty("net.sf.colossus.stressTestRounds", "1");
+        ErrorUtils.clearErrorDuringFunctionalTest();
+
+        Options startOptions = new Options(Constants.OPTIONS_START, true);
+        WhatNextManager whatNextManager = new WhatNextManager(startOptions);
+
+        Options serverOptions = new Options(Constants.OPTIONS_SERVER_NAME,
+            CUSTOM_PATH, false, true);
+        serverOptions.loadOptions();
+
+        // Player 0: Human with autoplay (exercises human BERSERK path)
+        serverOptions.setOption(Options.playerName + "0", "HumanP0");
+        serverOptions.setOption(Options.playerType + "0",
+            Constants.human);
+        // Player 1: AI opponent
+        serverOptions.setOption(Options.playerName + "1", "AIP1");
+        serverOptions.setOption(Options.playerType + "1", "SimpleAI");
+
+        if (!humanPowers.isEmpty())
+        {
+            serverOptions.setOption(Options.playerPowers + "0", humanPowers);
+        }
+        if (!aiPowers.isEmpty())
+        {
+            serverOptions.setOption(Options.playerPowers + "1", aiPowers);
+        }
+
+        Variant variant = VariantSupport.loadVariantByName("Default", true);
+        GameServerSide game = new GameServerSide(whatNextManager,
+            serverOptions, variant);
+
+        game.startNewGameAndWaitUntilOver(null);
+
+        assertFalse("Human Berserker game encountered errors",
+            ErrorUtils.checkErrorDuringFunctionalTest());
+    }
+
+    /**
+     * Task #336: Human Berserker player completes full game via UI path.
+     * The human client receives BERSERK phase notification, auto-declares
+     * via autoBerserkAndDone(), sends doneWithBerserkDeclarations to server.
+     * Verifies zero SEVERE errors through multiple battle rounds.
+     */
+    public void testHumanBerserkerFullGame()
+    {
+        LOGGER.info("E2E: Human Berserker full game (UI path)");
+        runHumanGameWithPowers("BERSERKER", "");
+        assertEquals("Human Berserker game should have zero SEVERE."
+            + " First error: "
+            + (severeMessages.isEmpty() ? "none" : severeMessages.get(0)),
+            0, severeMessages.size());
+    }
+
+    /**
+     * Task #286: Human Berserker declares multiple creatures in one phase.
+     * Full game exercises the path where multiple creatures reach 1-hit
+     * and all get auto-declared berserk by the autoplay handler.
+     */
+    public void testHumanBerserkerMultipleDeclarations()
+    {
+        LOGGER.info("E2E: Human Berserker multiple declarations");
+        runHumanGameWithPowers("BERSERKER,ARMOURER", "BERSERKER");
+        assertEquals("Multi-berserk game should have zero SEVERE."
+            + " First error: "
+            + (severeMessages.isEmpty() ? "none" : severeMessages.get(0)),
+            0, severeMessages.size());
+    }
+
+    /**
+     * Task #288: Human Berserker full battle flow through all phases.
+     * BERSERK→FIGHT→STRIKEBACK cycle with human player completing
+     * multiple rounds without phase corruption.
+     */
+    public void testHumanBerserkerFullBattleFlow()
+    {
+        LOGGER.info("E2E: Human Berserker full battle flow");
+        runHumanGameWithPowers("BERSERKER", "KNIGHT");
+        assertEquals("Full battle flow should have zero SEVERE."
+            + " First error: "
+            + (severeMessages.isEmpty() ? "none" : severeMessages.get(0)),
+            0, severeMessages.size());
+    }
 }

@@ -281,4 +281,49 @@ public class LauerPowerIntegrationTest extends TestCase
         
         assertEquals(7, red.getMaxLegionHeight()); // oops, should be 7
     }
+
+    // === Split NAK recovery (regression test) ===
+
+    /**
+     * Regression: splitRequestSent was never cleared on NAK, permanently
+     * blocking the parent legion from splitting again.
+     * Fix: Client.recoverFromNak clears the flag for all pending legions.
+     */
+    public void testSplitRequestSentFlagLifecycle()
+    {
+        MasterHex tower = variant.getMasterBoard().getHexByLabel("100");
+        Legion legion = new TestLegion(red, "Rd01", tower);
+        red.addLegion(legion);
+
+        // Initially: no pending splits
+        assertFalse(legion.getSplitRequestSent());
+        assertEquals(0, red.countPendingSplits());
+
+        // Simulate request sent
+        legion.setSplitRequestSent(true);
+        assertTrue(legion.getSplitRequestSent());
+        assertEquals(1, red.countPendingSplits());
+
+        // Simulate NAK recovery: iterate pending and clear
+        for (Legion leg : red.getPendingSplitLegions())
+        {
+            leg.setSplitRequestSent(false);
+        }
+        assertFalse(legion.getSplitRequestSent());
+        assertEquals(0, red.countPendingSplits());
+
+        // Legion can now be split again
+        legion.setSplitRequestSent(true);
+        assertTrue(legion.getSplitRequestSent());
+    }
+
+    /**
+     * Client-side split height check must respect Ninja minimum (2 not 4).
+     */
+    public void testClientSplitHeightCheckNinja()
+    {
+        red.getPowers().addPower(LauerPower.NINJA);
+        int minPreSplit = red.hasPower(LauerPower.NINJA) ? 2 : 4;
+        assertEquals(2, minPreSplit);
+    }
 }

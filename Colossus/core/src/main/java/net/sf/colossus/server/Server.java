@@ -32,6 +32,7 @@ import net.sf.colossus.common.Constants;
 import net.sf.colossus.common.Options;
 import net.sf.colossus.common.WhatNextManager;
 import net.sf.colossus.common.WhatNextManager.WhatToDoNext;
+import net.sf.colossus.game.BattlePhase;
 import net.sf.colossus.game.EntrySide;
 import net.sf.colossus.game.Legion;
 import net.sf.colossus.game.Phase;
@@ -2003,6 +2004,55 @@ public final class Server extends Thread implements IServer
             return;
         }
         battle.doneWithMoves();
+    }
+
+    public void doneWithBerserkDeclarations()
+    {
+        BattleServerSide battle = game.getBattleSS();
+        if (!isBattleActivePlayer())
+        {
+            LOGGER.warning(getPlayerName()
+                + " illegally called doneWithBerserkDeclarations()");
+            return;
+        }
+        if (battle.getBattlePhase() != BattlePhase.BERSERK)
+        {
+            LOGGER.warning(getPlayerName()
+                + " called doneWithBerserkDeclarations() outside BERSERK"
+                + " phase (current: " + battle.getBattlePhase() + ")");
+            return;
+        }
+        battle.doneWithBerserkDeclarations();
+    }
+
+    public void declareBerserk(int tag)
+    {
+        BattleServerSide battle = game.getBattleSS();
+        if (!isBattleActivePlayer())
+        {
+            LOGGER.warning(getPlayerName()
+                + " illegally called declareBerserk()");
+            return;
+        }
+        if (battle.getBattlePhase() != BattlePhase.BERSERK)
+        {
+            LOGGER.warning(getPlayerName()
+                + " called declareBerserk() outside BERSERK phase");
+            return;
+        }
+        LegionServerSide legion = battle.getActiveLegion();
+        if (legion != null)
+        {
+            for (CreatureServerSide critter : legion.getCreatures())
+            {
+                if (critter.getTag() == tag)
+                {
+                    battle.declareBerserk(critter);
+                    return;
+                }
+            }
+        }
+        LOGGER.warning("declareBerserk: no creature with tag " + tag);
     }
 
     public void doneWithStrikes()

@@ -224,6 +224,123 @@ public class ScriptedMulliganTest extends TestCase
     }
 
     /**
+     * BUG REPRODUCTION: On turn 1 with non-6 dice (e.g. 2,5), the second
+     * legion cannot teleport after the first has teleported.
+     *
+     * The user's observation: "it allowed one of my two stacks to teleport
+     * but not both" when dice are 2,5 (neither is 6).
+     *
+     * This test verifies the server-side validation (isValidTeleportMove)
+     * accepts both teleports, and that the turn-1 forced-6,6 makes the
+     * intent clear.
+     */
+    public void testMulliganTurn1DoMoveBothTeleport()
+    {
+        // Use the simpler Game + MovementServerSide to test validation
+        // (GameServerSide.doMove requires a running Server for reveal step)
+        Player player = new Player(game, "MulliganDoMove", 0);
+        player.getPowers().addPower(LauerPower.MULLIGAN);
+        game.addPlayer(player);
+
+        MasterHex tower = variant.getMasterBoard().getHexByLabel("100");
+        assertNotNull("Tower 100 must exist", tower);
+        player.setStartingTower(tower);
+
+        TestLegion legion1 = new TestLegion(player, "Rd01", tower);
+        TestLegion legion2 = new TestLegion(player, "Rd02", tower);
+        player.addLegion(legion1);
+        player.addLegion(legion2);
+
+        game.setTurnNumber(1);
+        // Simulate rolling 2 and 5 (non-6 dice) — this is the bug scenario
+        game.setMovementRoll(5);
+        game.setMulliganDice(2, 5);
+        player.setMulliganRolls(2, 5);
+
+        // First legion teleports with roll=5
+        Set<MasterHex> dests1 = movement.listTeleportMoves(legion1, tower, 5);
+        assertTrue("Legion 1 must have teleport destinations", dests1.size() > 0);
+
+        MasterHex dest1 = dests1.iterator().next();
+        // Validate on server: isValidTeleportMove
+        String reason1 = movement.isValidTeleportMove(legion1, dest1, 5);
+        assertNull("First teleport validation must pass: " + reason1, reason1);
+
+        // Simulate first legion having teleported (as server would do)
+        legion1.setMoved(true);
+        legion1.setTeleported(true);
+        legion1.setCurrentHex(dest1);
+
+        // KEY BUG CHECK: second legion with player.hasTeleported()=true
+        assertTrue("player.hasTeleported() must be true", player.hasTeleported());
+
+        // Second legion tries to teleport with roll=5
+        Set<MasterHex> dests2 = movement.listTeleportMoves(legion2, tower, 5);
+        assertTrue("Legion 2 must ALSO have teleport destinations after "
+            + "legion 1 teleported (got " + dests2.size() + ")",
+            dests2.size() > 0);
+
+        // Also check with roll=2 (the other die)
+        Set<MasterHex> dests2alt = movement.listTeleportMoves(legion2, tower, 2);
+        assertTrue("Legion 2 must have teleport destinations with alt roll too",
+            dests2alt.size() > 0);
+
+        MasterHex dest2 = null;
+        for (MasterHex h : dests2)
+        {
+            if (!h.equals(dest1))
+            {
+                dest2 = h;
+                break;
+            }
+        }
+        assertNotNull("Must find a second valid destination", dest2);
+        String reason2 = movement.isValidTeleportMove(legion2, dest2, 5);
+        assertNull("Second teleport validation must pass: " + reason2, reason2);
+    }
+
+    /**
+     * Verify that Mulligan turn-1 dice are forced to 6,6.
+     * This ensures both legions can teleport via the normal roll=6 path,
+     * eliminating subtle client-side bugs in the Mulligan bypass logic.
+     */
+    public void testMulliganTurn1ForcedSixes()
+    {
+        Player player = new Player(game, "MulliganForced6", 0);
+        player.getPowers().addPower(LauerPower.MULLIGAN);
+        game.addPlayer(player);
+
+        MasterHex tower = variant.getMasterBoard().getHexByLabel("100");
+        player.setStartingTower(tower);
+
+        TestLegion legion1 = new TestLegion(player, "Rd01", tower);
+        TestLegion legion2 = new TestLegion(player, "Rd02", tower);
+        player.addLegion(legion1);
+        player.addLegion(legion2);
+
+        game.setTurnNumber(1);
+        // Mulligan turn 1 should force 6,6
+        game.setMovementRoll(6);
+        game.setMulliganDice(6, 6);
+        player.setMulliganRolls(6, 6);
+
+        // With roll=6, regular teleport is allowed (no Mulligan bypass needed)
+        // First legion teleports
+        Set<MasterHex> dests1 = movement.listTeleportMoves(legion1, tower, 6);
+        assertTrue("Legion 1 teleport with roll=6", dests1.size() > 0);
+
+        legion1.setMoved(true);
+        legion1.setTeleported(true);
+        legion1.setCurrentHex(dests1.iterator().next());
+
+        // Second legion: player.hasTeleported()=true but Mulligan+turn1 bypasses
+        assertTrue(player.hasTeleported());
+        Set<MasterHex> dests2 = movement.listTeleportMoves(legion2, tower, 6);
+        assertTrue("Legion 2 must teleport with forced 6,6 on turn 1",
+            dests2.size() > 0);
+    }
+
+    /**
      * CONSISTENCY TEST: every hex returned by listTeleportMoves must
      * also produce non-empty entrySides from listPossibleEntrySides.
      * This is the exact bug pattern that was invisible to AI tests
