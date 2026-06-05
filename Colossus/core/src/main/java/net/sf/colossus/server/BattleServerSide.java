@@ -640,7 +640,7 @@ public final class BattleServerSide extends Battle
             CreatureServerSide folk = new CreatureServerSide(
                 folkCreatureType, activeLegion, getGame());
             activeLegion.getCreatures().add(folk);
-            server.allPlaceNewChit(folk);
+            placeCritter(folk);
             folkCreaturesRemaining--;
             LOGGER.info("The Folks: spawned " + folkCreatureType.getName()
                 + " (" + folkCreaturesRemaining + " remaining)");
