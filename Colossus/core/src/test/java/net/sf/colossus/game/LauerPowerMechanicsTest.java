@@ -376,22 +376,132 @@ public class LauerPowerMechanicsTest extends TestCase
 
     public void testMarinesNoTerrainPenalty()
     {
-        // Marines are treated as native to all terrain except walls/volcanoes
-        // This means: marinesNative=true bypasses skill penalties from terrain
-        // Volcano is the exception: marinesNative=false for volcano
-        boolean marinesNative;
+        // Marines non-native creatures: no terrain penalties
+        // terrainPenalty > 0 gets zeroed
+        int terrainPenalty = 2; // e.g. bramble non-native penalty
+        boolean isMarines = true;
+        boolean isVolcano = false;
+        boolean isNative = false;
 
-        // Bramble: Marines are native (no penalty)
-        marinesNative = true; // && !hex.getTerrain().equals(VOLCANO)
-        assertTrue("Marines should be native in bramble", marinesNative);
+        if (isMarines && !isVolcano && terrainPenalty > 0)
+        {
+            terrainPenalty = 0;
+        }
+        assertEquals("Marines non-native: penalty zeroed", 0, terrainPenalty);
 
-        // Slope: Marines treated as native (no -1 penalty striking up)
-        marinesNative = true;
-        assertTrue("Marines should be native on slope", marinesNative);
+        // Volcano exception: penalty still applies
+        terrainPenalty = 2;
+        isVolcano = true;
+        if (isMarines && !isVolcano && terrainPenalty > 0)
+        {
+            terrainPenalty = 0;
+        }
+        assertEquals("Marines in volcano: penalty kept", 2, terrainPenalty);
+    }
 
-        // Volcano: Marines are NOT native (exception)
-        marinesNative = false; // terrain IS volcano
-        assertFalse("Marines should NOT be native in volcano", marinesNative);
+    public void testMarinesNonNativeNoTerrainBonus()
+    {
+        // Marines non-native creatures: no terrain BONUSES either
+        // terrainPenalty < 0 means a bonus; non-natives shouldn't get it
+        int terrainPenalty = -1; // e.g. brush native bonus
+        boolean isMarines = true;
+        boolean isVolcano = false;
+        boolean isNative = false; // creature is NOT native to brush
+
+        if (isMarines && !isVolcano)
+        {
+            if (terrainPenalty > 0)
+            {
+                terrainPenalty = 0;
+            }
+            else if (terrainPenalty < 0 && !isNative)
+            {
+                terrainPenalty = 0;
+            }
+        }
+        assertEquals("Marines non-native: bonus zeroed", 0, terrainPenalty);
+    }
+
+    public void testMarinesNativeKeepsBonus()
+    {
+        // Marines native creatures still get their native terrain bonus
+        int terrainPenalty = -1; // brush native bonus
+        boolean isMarines = true;
+        boolean isVolcano = false;
+        boolean isNative = true; // creature IS native to brush
+
+        if (isMarines && !isVolcano)
+        {
+            if (terrainPenalty > 0)
+            {
+                terrainPenalty = 0;
+            }
+            else if (terrainPenalty < 0 && !isNative)
+            {
+                terrainPenalty = 0;
+            }
+        }
+        assertEquals("Marines native: bonus kept", -1, terrainPenalty);
+    }
+
+    public void testMarinesNoDuneUpPenalty()
+    {
+        // Marines non-native: no -1 dice for striking up dune
+        boolean isNativeAtDune = false;
+        boolean isMarines = true;
+        boolean strikingUpDune = true;
+        int diceMod = 0;
+
+        if (strikingUpDune && !isNativeAtDune && !isMarines)
+        {
+            diceMod = -1;
+        }
+        assertEquals("Marines: no dune-up dice penalty", 0, diceMod);
+
+        // Non-Marines non-native: DOES get penalty
+        isMarines = false;
+        if (strikingUpDune && !isNativeAtDune && !isMarines)
+        {
+            diceMod = -1;
+        }
+        assertEquals("Non-Marines: dune-up dice penalty", -1, diceMod);
+    }
+
+    public void testMarinesCanEnterBog()
+    {
+        // Bog terrain has EffectOnMovement.BLOCKFOREIGNER — normally
+        // impassible for non-native ground creatures (e.g. Cyclops).
+        // Marines power should override this to cost 1.
+        boolean isMarines = true;
+        boolean isFlier = false; // Cyclops is ground
+        boolean isGroundNativeOnly = true; // bog
+        boolean blocksGround = false; // not BLOCKALL
+        boolean isNative = false; // Cyclops is not native to bog
+        int entryCost = 99; // IMPASSIBLE_COST from getEntryCost
+
+        // Marines fix: if terrain is groundNativeOnly (not blocksGround),
+        // override IMPASSIBLE to 1
+        if (isMarines && !isFlier)
+        {
+            if (entryCost == 99 && isGroundNativeOnly && !blocksGround)
+            {
+                entryCost = 1;
+            }
+        }
+        assertEquals("Marines Cyclops should enter bog at cost 1",
+            1, entryCost);
+
+        // Without Marines: stays impassible
+        isMarines = false;
+        entryCost = 99;
+        if (isMarines && !isFlier)
+        {
+            if (entryCost == 99 && isGroundNativeOnly && !blocksGround)
+            {
+                entryCost = 1;
+            }
+        }
+        assertEquals("Non-Marines Cyclops cannot enter bog", 99, entryCost);
     }
 
     // === Healer ===

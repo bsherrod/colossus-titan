@@ -80,12 +80,23 @@ public class BattleMovementServerSide
                         entryCost = BattleHex.IMPASSIBLE_COST;
                     }
 
-                    // Marines: ignore terrain slow (cost always 1 unless impassable)
-                    if (entryCost != BattleHex.IMPASSIBLE_COST
-                        && entryCost > 1
-                        && critter.getPlayer().hasPower(LauerPower.MARINES))
+                    // Marines: ignore all terrain movement penalties.
+                    // This includes groundNativeOnly terrain (bog) which
+                    // returns IMPASSIBLE for non-natives — Marines can enter.
+                    if (critter.getPlayer().hasPower(LauerPower.MARINES)
+                        && !critter.getType().isFlier())
                     {
-                        entryCost = 1;
+                        if (entryCost == BattleHex.IMPASSIBLE_COST
+                            && neighbor.getTerrain().isGroundNativeOnly()
+                            && !neighbor.getTerrain().blocksGround())
+                        {
+                            entryCost = 1;
+                        }
+                        else if (entryCost != BattleHex.IMPASSIBLE_COST
+                            && entryCost > 1)
+                        {
+                            entryCost = 1;
+                        }
                     }
 
                     // Living Dead: leaving a hex with enemy corpses costs +1
