@@ -282,7 +282,7 @@ public abstract class AbstractAI implements AI
                     double d = map.get(target).doubleValue();
                     h += d;
                 }
-                map.put(target, new Double(h));
+                map.put(target, Double.valueOf(h));
             }
         }
         return map;

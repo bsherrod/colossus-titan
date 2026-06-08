@@ -34,7 +34,7 @@ public class Opts
     public void addOption(char optch, String name, boolean hasarg, String help)
     {
         Opt opt = new Opt(optch, name, hasarg, help);
-        optchToOpt.put(new Character(optch), opt);
+        optchToOpt.put(Character.valueOf(optch), opt);
         nameToOpt.put(name, opt);
     }
 
@@ -47,7 +47,7 @@ public class Opts
     /** Return the Opt corresponding to short option optch. */
     public Opt getOpt(char optch)
     {
-        return optchToOpt.get(new Character(optch));
+        return optchToOpt.get(Character.valueOf(optch));
     }
 
     /** Return the Opt corresponding to long option name. */

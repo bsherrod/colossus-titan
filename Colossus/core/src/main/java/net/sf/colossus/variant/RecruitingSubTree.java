@@ -239,7 +239,7 @@ public class RecruitingSubTree implements IRecruiting
         assert recruiter != null : "Oups, recruiter must not be null";
         assert number > 0 : "Oups, number should be > 0";
         assert !recruit.isTitan() : "Oups, can't recruit Titan";
-        regular.put(new RecruiterAndRecruit(recruiter, recruit), new Integer(
+        regular.put(new RecruiterAndRecruit(recruiter, recruit), Integer.valueOf(
             number));
         // should recruiter by a recruitable, completeGraph will take care
         allRecruits.add(recruit);

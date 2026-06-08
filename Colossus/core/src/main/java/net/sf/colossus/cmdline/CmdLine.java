@@ -62,7 +62,7 @@ public class CmdLine
                 Opt opt = opts.getOpt(optch);
                 String name = opt.getName();
                 String value = arg;
-                optchToValue.put(new Character(optch), value);
+                optchToValue.put(Character.valueOf(optch), value);
                 nameToValue.put(name, value);
                 expectingValue = false;
             }
@@ -71,7 +71,7 @@ public class CmdLine
                 String name = arg.substring(2);
                 Opt opt = opts.getOpt(name);
                 optch = opt.getOptch();
-                optchSeen.add(new Character(optch));
+                optchSeen.add(Character.valueOf(optch));
                 nameSeen.add(name);
                 expectingValue = opt.hasArg();
             }
@@ -80,7 +80,7 @@ public class CmdLine
                 optch = arg.charAt(1);
                 Opt opt = opts.getOpt(optch);
                 String name = opt.getName();
-                optchSeen.add(new Character(optch));
+                optchSeen.add(Character.valueOf(optch));
                 nameSeen.add(name);
                 expectingValue = opt.hasArg();
                 if (arg.length() > 2)
@@ -88,7 +88,7 @@ public class CmdLine
                     if (expectingValue)
                     {
                         String value = arg.substring(2);
-                        optchToValue.put(new Character(optch), value);
+                        optchToValue.put(Character.valueOf(optch), value);
                         nameToValue.put(name, value);
                         expectingValue = false;
                     }
@@ -100,7 +100,7 @@ public class CmdLine
                             optch = arg.charAt(jj);
                             opt = opts.getOpt(optch);
                             name = opt.getName();
-                            optchSeen.add(new Character(optch));
+                            optchSeen.add(Character.valueOf(optch));
                             nameSeen.add(name);
                             expectingValue = opt.hasArg();
                             if (expectingValue)
@@ -127,7 +127,7 @@ public class CmdLine
     /** Return true iff the option has been seen. */
     public boolean optIsSet(char optch)
     {
-        return optchSeen.contains(new Character(optch));
+        return optchSeen.contains(Character.valueOf(optch));
     }
 
     /** Return true iff the option has been seen. */
@@ -141,7 +141,7 @@ public class CmdLine
      *  not take an argument. */
     public String getOptValue(char optch)
     {
-        return optchToValue.get(new Character(optch));
+        return optchToValue.get(Character.valueOf(optch));
     }
 
     /** Return the option value as a String.

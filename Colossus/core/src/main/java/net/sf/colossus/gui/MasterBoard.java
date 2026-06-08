@@ -2386,9 +2386,9 @@ public final class MasterBoard extends JPanel
      *  it useless here. */
     private static boolean isPopupButton(MouseEvent e)
     {
-        int modifiers = e.getModifiers();
-        return (((modifiers & InputEvent.BUTTON2_MASK) != 0)
-            || ((modifiers & InputEvent.BUTTON3_MASK) != 0) || e.isAltDown() || e
+        int modifiers = e.getModifiersEx();
+        return (((modifiers & InputEvent.BUTTON2_DOWN_MASK) != 0)
+            || ((modifiers & InputEvent.BUTTON3_DOWN_MASK) != 0) || e.isAltDown() || e
                 .isControlDown());
     }
 

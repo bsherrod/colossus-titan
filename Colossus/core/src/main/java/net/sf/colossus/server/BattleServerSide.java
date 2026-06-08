@@ -61,6 +61,11 @@ public final class BattleServerSide extends Battle
     private boolean conceded;
     private boolean preStrikeEffectsApplied = false;
     private boolean berserkBeforeStrikeback = false;
+    // Tracks whether we still need the OTHER player's berserk declaration
+    // after the active player's berserk (before FIGHT)
+    private boolean otherPlayerBerserkPending = false;
+    // Who moved this half-turn (restored as active before FIGHT)
+    private LegionTags moverLegionTag = null;
     private boolean fireSpellUsed = false;
 
     /**
@@ -384,6 +389,8 @@ public final class BattleServerSide extends Battle
 
             else if (phase == BattlePhase.MOVE)
             {
+                // Remember who moved — needed to restore after berserk swaps
+                moverLegionTag = activeLegionTag;
                 // IF the attacker makes it to the end of his first movement
                 // phase without conceding, even if he left all legions
                 // off-board, the defender can recruit.
@@ -391,90 +398,131 @@ public final class BattleServerSide extends Battle
                 {
                     attackerEntered = true;
                 }
-                // Berserker: insert BERSERK phase before FIGHT
+                // Berserker: active player declares berserk first
                 if (getActiveLegion() != null
                     && getActiveLegion().getPlayer()
                         .hasPower(LauerPower.BERSERKER))
                 {
+                    // Check if OTHER player also has berserker
+                    LegionTags otherTag = (activeLegionTag == LegionTags.ATTACKER)
+                        ? LegionTags.DEFENDER : LegionTags.ATTACKER;
+                    Legion otherLegion = (otherTag == LegionTags.ATTACKER)
+                        ? getAttackingLegion() : getDefendingLegion();
+                    otherPlayerBerserkPending = otherLegion != null
+                        && otherLegion.getPlayer()
+                            .hasPower(LauerPower.BERSERKER);
                     setBattlePhase(BattlePhase.BERSERK);
-                    LOGGER.info("Battle phase advances to BERSERK");
+                    LOGGER.info("Battle phase advances to BERSERK (active)");
                     again = setupBerserk();
                 }
                 else
                 {
-                    setBattlePhase(BattlePhase.FIGHT);
-                    LOGGER.log(Level.INFO, "Battle phase advances to " + phase);
-                    if (conceded)
+                    // Active player has no berserker, but other might
+                    LegionTags otherTag = (activeLegionTag == LegionTags.ATTACKER)
+                        ? LegionTags.DEFENDER : LegionTags.ATTACKER;
+                    Legion otherLegion = (otherTag == LegionTags.ATTACKER)
+                        ? getAttackingLegion() : getDefendingLegion();
+                    if (otherLegion != null
+                        && otherLegion.getPlayer()
+                            .hasPower(LauerPower.BERSERKER))
                     {
-                        LOGGER
-                            .log(Level.INFO, "Conceded - setting again to true.");
-                        again = true;
+                        // Swap to other player for their berserk declaration
+                        otherPlayerBerserkPending = false;
+                        activeLegionTag = otherTag;
+                        setBattlePhase(BattlePhase.BERSERK);
+                        LOGGER.info("Battle phase advances to BERSERK"
+                            + " (other player only)");
+                        again = setupBerserk();
                     }
                     else
                     {
-                        again = setupFight();
+                        setBattlePhase(BattlePhase.FIGHT);
+                        LOGGER.log(Level.INFO, "Battle phase advances to " + phase);
+                        if (conceded)
+                        {
+                            LOGGER
+                                .log(Level.INFO, "Conceded - setting again to true.");
+                            again = true;
+                        }
+                        else
+                        {
+                            again = setupFight();
+                        }
                     }
                 }
             }
 
             else if (phase == BattlePhase.BERSERK)
             {
-                // After BERSERK declaration, advance to FIGHT or STRIKEBACK
-                if (berserkBeforeStrikeback)
+                if (otherPlayerBerserkPending)
                 {
-                    berserkBeforeStrikeback = false;
-                    setBattlePhase(BattlePhase.STRIKEBACK);
-                }
-                else
-                {
-                    setBattlePhase(BattlePhase.FIGHT);
-                }
-                LOGGER.log(Level.INFO, "Battle phase advances to " + phase);
-                if (conceded)
-                {
-                    LOGGER.log(Level.INFO, "Conceded - setting again to true.");
-                    again = true;
-                }
-                else
-                {
-                    again = setupFight();
-                }
-            }
-
-            else if (phase == BattlePhase.FIGHT)
-            {
-                // We switch the active legion between the fight and strikeback
-                // phases, not at the end of the player turn.
-                activeLegionTag = (activeLegionTag == LegionTags.ATTACKER) ? LegionTags.DEFENDER
-                    : LegionTags.ATTACKER;
-                preStrikeEffectsApplied = false;
-                // Berserker: insert BERSERK before STRIKEBACK if the
-                // striking-back player has Berserker power
-                if (getActiveLegion() != null
-                    && getActiveLegion().getPlayer()
-                        .hasPower(LauerPower.BERSERKER))
-                {
-                    berserkBeforeStrikeback = true;
+                    // Active player just declared; now swap to other player
+                    otherPlayerBerserkPending = false;
+                    activeLegionTag = (activeLegionTag == LegionTags.ATTACKER)
+                        ? LegionTags.DEFENDER : LegionTags.ATTACKER;
                     setBattlePhase(BattlePhase.BERSERK);
                     LOGGER.info("Battle phase advances to BERSERK"
-                        + " (before strikeback)");
+                        + " (other player)");
                     again = setupBerserk();
                 }
-                else
+                else if (berserkBeforeStrikeback)
                 {
+                    // Legacy path — should not be reached with new flow,
+                    // but kept for safety
+                    berserkBeforeStrikeback = false;
                     setBattlePhase(BattlePhase.STRIKEBACK);
-                    LOGGER.log(Level.INFO,
-                        "Battle phase advances to " + phase);
+                    LOGGER.log(Level.INFO, "Battle phase advances to " + phase);
                     if (conceded)
                     {
-                        LOGGER.log(Level.INFO,
-                            "Conceded - setting again to true.");
                         again = true;
                     }
                     else
                     {
                         again = setupFight();
                     }
+                }
+                else
+                {
+                    // Both players have declared. Restore the mover as
+                    // active for FIGHT (they strike first).
+                    if (moverLegionTag != null)
+                    {
+                        activeLegionTag = moverLegionTag;
+                    }
+                    setBattlePhase(BattlePhase.FIGHT);
+                    LOGGER.log(Level.INFO, "Battle phase advances to " + phase);
+                    if (conceded)
+                    {
+                        LOGGER.log(Level.INFO, "Conceded - setting again to true.");
+                        again = true;
+                    }
+                    else
+                    {
+                        again = setupFight();
+                    }
+                }
+            }
+
+            else if (phase == BattlePhase.FIGHT)
+            {
+                // Swap active legion for strikeback
+                activeLegionTag = (activeLegionTag == LegionTags.ATTACKER) ? LegionTags.DEFENDER
+                    : LegionTags.ATTACKER;
+                preStrikeEffectsApplied = false;
+                // Both players already declared berserk before FIGHT,
+                // so go straight to STRIKEBACK.
+                setBattlePhase(BattlePhase.STRIKEBACK);
+                LOGGER.log(Level.INFO,
+                    "Battle phase advances to " + phase);
+                if (conceded)
+                {
+                    LOGGER.log(Level.INFO,
+                        "Conceded - setting again to true.");
+                    again = true;
+                }
+                else
+                {
+                    again = setupFight();
                 }
             }
 

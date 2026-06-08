@@ -675,6 +675,23 @@ public class GameServerSide extends Game
 
         // Renumber players in descending tower order.
         sortPlayersDescendingTower();
+
+        // Re-write playerPowers options in post-sort order and re-sync
+        // to clients. syncOptions() already ran with pre-sort indices,
+        // so clients have stale power mappings. This corrects them.
+        int pidx = 0;
+        for (Player p : getPlayers())
+        {
+            String pStr = p.getPowers().serialize();
+            String val = (pStr != null) ? pStr : "";
+            options.setOption(Options.playerPowers + pidx, val);
+            if (!val.isEmpty())
+            {
+                server.allSyncOption(Options.playerPowers + pidx, val);
+            }
+            pidx++;
+        }
+
         activePlayerNum = 0;
         assignColors();
     }
@@ -1151,7 +1168,7 @@ public class GameServerSide extends Game
 
         for (MasterHex tower : towerList)
         {
-            Integer i = new Integer(tower.getLabel());
+            Integer i = Integer.parseInt(tower.getLabel());
 
             numericList.add(i);
         }
@@ -1627,8 +1644,8 @@ public class GameServerSide extends Game
             int totalPoints = score + creaturePoints;
             String debug = String.format(
                 "%-10s: Score=%4d, CreaturePoints=%4d, TotalPoints=%4d\n",
-                p.getName(), new Integer(score), new Integer(creaturePoints),
-                new Integer(totalPoints));
+                p.getName(), Integer.valueOf(score), Integer.valueOf(creaturePoints),
+                Integer.valueOf(totalPoints));
             debugGameStatistics += debug;
         }
     }

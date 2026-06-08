@@ -187,4 +187,28 @@ public class LauerPowersFuncTest extends TestCase
         LOGGER.info("test: Amoeba full game");
         runGameWithPowers("AMOEBA", "", "");
     }
+
+    public void testDemonFullGame()
+    {
+        LOGGER.info("test: Demon full game");
+        runGameWithPowers("DEMON", "", "");
+    }
+
+    public void testHealerFullGame()
+    {
+        LOGGER.info("test: Healer full game");
+        runGameWithPowers("HEALER", "", "");
+    }
+
+    public void testLivingDeadFullGame()
+    {
+        LOGGER.info("test: Living Dead full game");
+        runGameWithPowers("LIVING_DEAD", "", "");
+    }
+
+    public void testArchmageFullGame()
+    {
+        LOGGER.info("test: Archmage full game");
+        runGameWithPowers("ARCHMAGE", "", "");
+    }
 }

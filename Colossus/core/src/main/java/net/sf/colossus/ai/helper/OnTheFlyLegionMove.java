@@ -772,21 +772,6 @@ public class OnTheFlyLegionMove implements Collection<LegionMove>
         {
             throw new UnsupportedOperationException();
         }
-
-        @Override
-        protected void finalize() throws Throwable
-        {
-            if (lastone != null)
-            { // the previously returned value has been evaluated now
-              // so we can put it in the byvalues set.
-                byValues.add(lastone);
-                lastone = null;
-            }
-            LOGGER.finest("From our " + mysize + " combinations, "
-                + byValues.size() + " we evaluated ("
-                + ((100. * byValues.size()) / mysize) + " %)");
-            super.finalize();
-        }
     }
 
     public boolean add(LegionMove o)

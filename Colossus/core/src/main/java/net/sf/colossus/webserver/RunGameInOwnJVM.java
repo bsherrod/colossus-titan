@@ -221,7 +221,7 @@ public class RunGameInOwnJVM extends Thread implements IGameRunner
 
         try
         {
-            Process p = rt.exec(command, null, gameDir);
+            Process p = new ProcessBuilder(command.split(" ")).directory(gameDir).start();
             p.getOutputStream().close();
             NullDumper ndout = new NullDumper(p, false, p.getInputStream(),
                 gameId + "_OUT: ").start();

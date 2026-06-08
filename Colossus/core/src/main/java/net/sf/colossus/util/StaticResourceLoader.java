@@ -298,8 +298,9 @@ public final class StaticResourceLoader
         try
         {
             URL url;
-            url = new URL("file:" + path + pathSeparator
+            java.net.URI uri = new java.net.URI("file:" + path + pathSeparator
                 + fixFilename(filename));
+            url = uri.toURL();
             // URL will not be null even if the file doesn't exist,
             // so we need to check if connection can be opened
             if (url.openStream() != null)
@@ -307,7 +308,7 @@ public final class StaticResourceLoader
                 image = Toolkit.getDefaultToolkit().getImage(url);
             }
         }
-        catch (MalformedURLException e)
+        catch (MalformedURLException | java.net.URISyntaxException e)
         {
             // nothing to do
         }
@@ -1332,7 +1333,7 @@ public final class StaticResourceLoader
         {
             try
             {
-                return theClass.newInstance();
+                return theClass.getDeclaredConstructor().newInstance();
             }
             catch (Exception e)
             {

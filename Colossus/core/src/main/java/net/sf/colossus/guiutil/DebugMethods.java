@@ -33,7 +33,7 @@ public class DebugMethods
     public static void doCleanupStuff(boolean doSwingCleanup)
     {
         System.gc();
-        System.runFinalization();
+        
 
         DummyFrameWithMenu.doOneDummyFrame("exitDummy");
         DummyFrameWithMenu.doOneDummyFrame("exitDummy2");
@@ -45,7 +45,7 @@ public class DebugMethods
         }
 
         System.gc();
-        System.runFinalization();
+        
     }
 
     /**
@@ -82,7 +82,7 @@ public class DebugMethods
     public static void waitReturnLoop(boolean force)
     {
         System.gc();
-        System.runFinalization();
+        
         InstanceTracker.printStatistics();
 
         if (InstanceTracker.allGone())
@@ -101,7 +101,7 @@ public class DebugMethods
         while (!done)
         {
             System.gc();
-            System.runFinalization();
+            
 
             try
             {
@@ -142,13 +142,13 @@ public class DebugMethods
                 if (line.equals("g"))
                 {
                     System.gc();
-                    System.runFinalization();
+                    
                 }
 
                 if (line.equals("s"))
                 {
                     System.gc();
-                    System.runFinalization();
+                    
 
                     InstanceTracker.printStatistics();
                 }
@@ -169,7 +169,7 @@ public class DebugMethods
                 //
             }
             System.gc();
-            System.runFinalization();
+            
         }
         System.out
             .println("ok, list empty or x entered... finishing shutdown...");

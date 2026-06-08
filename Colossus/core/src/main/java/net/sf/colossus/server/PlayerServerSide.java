@@ -648,8 +648,8 @@ public final class PlayerServerSide extends Player implements
 
         String debug = String.format(
             "Turn %3d, Player %-10s dies, creatureScore=%3d\n",
-            new Integer(getGame().getTurnNumber()), getName(),
-            new Integer(creaturePointsBeforeDeath));
+            Integer.valueOf(getGame().getTurnNumber()), getName(),
+            Integer.valueOf(creaturePointsBeforeDeath));
         DebugMethods.aiDevLog(debug);
 
         // Truncate every player's score to an integer value.

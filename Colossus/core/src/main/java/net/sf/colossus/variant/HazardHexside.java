@@ -32,7 +32,7 @@ public class HazardHexside extends Hazards
             defenseEffect, attackEffect, rangedDefenseEffect,
             rangedAttackEffect, RangeStrikeSpecial, terrainSpecial);
         HEXSIDE_MAP.put(name, this);
-        HEXSIDE_MAP_UGLY.put(new Character(code), this);
+        HEXSIDE_MAP_UGLY.put(Character.valueOf(code), this);
     }
 
     public static HazardHexside getHexsideByName(String name)
@@ -44,7 +44,7 @@ public class HazardHexside extends Hazards
     @Deprecated
     public static HazardHexside getHexsideByCode(char code)
     {
-        return HEXSIDE_MAP_UGLY.get(new Character(code));
+        return HEXSIDE_MAP_UGLY.get(Character.valueOf(code));
     }
 
     /**

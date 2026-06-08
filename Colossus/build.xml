@@ -163,6 +163,17 @@
       </batchtest>
     </junit>
   </target>
+  <target name="singlefunctest" depends="compileFuncTests,compileVariants"
+  description="Run one functest class: ant singlefunctest -Dfunctest.class=net.sf.colossus.server.LauerPowersFuncTest">
+    <fail unless="functest.class" message="Usage: ant singlefunctest -Dfunctest.class=fully.qualified.ClassName"/>
+    <junit printsummary="yes" fork="yes" haltonfailure="no"
+    failureproperty="junit.testFailed"
+    errorproperty="junit.testError">
+      <classpath refid="project.class.path" />
+      <formatter type="plain" usefile="false" />
+      <test name="${functest.class}" />
+    </junit>
+  </target>
   <target name="testReports" description="Generates reports of a prior run of the tests"
   	depends="test">
   	<junitreport todir="${testresults.dir}">

@@ -1577,7 +1577,7 @@ public class WebClient extends KFrame implements IWebClient
     {
         SpinnerNumberModel model = (SpinnerNumberModel)spinner3.getModel();
         int newMax = getMaxForVariant(variant);
-        model.setMaximum(new Integer(newMax));
+        model.setMaximum(Integer.valueOf(newMax));
         maxLabel.setText(" max=" + newMax);
         adjustToPossibleMax(spinner1, newMax);
         adjustToPossibleMax(spinner2, newMax);
@@ -1588,7 +1588,7 @@ public class WebClient extends KFrame implements IWebClient
     {
         if (((Integer)spinner.getValue()).intValue() > max)
         {
-            spinner.setValue(new Integer(max));
+            spinner.setValue(Integer.valueOf(max));
         }
     }
 

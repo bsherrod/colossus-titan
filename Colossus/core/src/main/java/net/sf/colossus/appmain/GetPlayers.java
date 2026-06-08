@@ -1012,17 +1012,31 @@ public final class GetPlayers extends KFrame
             options.setOption(Options.playerType + i, type);
         }
 
-        // Save selected powers for each player
+        // Save selected powers for each player (using same compacted index
+        // as names/types — skip slots where player type is "none")
+        // First, clear ALL existing power options to prevent stale values
         for (int i = 0; i < Constants.MAX_MAX_PLAYERS; i++)
         {
-            String powerStr = "";
-            if (powerListPanels != null && powerListPanels[i] != null)
+            options.setOption(Options.playerPowers + i, "");
+        }
+        int powerIdx = 0;
+        for (int i = 0; i < VariantSupport.getMaxPlayers(); i++)
+        {
+            String type = (String)(playerTypes[i].getSelectedItem());
+            String name = (String)(playerNames[i].getSelectedItem());
+            if (name.length() > 0 && !name.equals(Constants.none)
+                && !type.equals(Constants.none))
             {
-                powerStr = powerListPanels[i].serialize();
-            }
-            if (!powerStr.isEmpty())
-            {
-                options.setOption(Options.playerPowers + i, powerStr);
+                String powerStr = "";
+                if (powerListPanels != null && powerListPanels[i] != null)
+                {
+                    powerStr = powerListPanels[i].serialize();
+                }
+                if (!powerStr.isEmpty())
+                {
+                    options.setOption(Options.playerPowers + powerIdx, powerStr);
+                }
+                powerIdx++;
             }
         }
 

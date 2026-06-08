@@ -486,7 +486,8 @@ public final class Options implements IOptions
         while (en.hasMoreElements())
         {
             String name = en.nextElement();
-            if (name.startsWith(playerName) || name.startsWith(playerType))
+            if (name.startsWith(playerName) || name.startsWith(playerType)
+                || name.startsWith(playerPowers))
             {
                 props.remove(name);
             }
