@@ -55,14 +55,7 @@ public class KFrame extends JFrame
         Point defaultLocation)
     {
         kSaveWindow = new SaveWindow(options, windowName);
-        if (defaultLocation == null)
-        {
-            kSaveWindow.restoreOrCenter(this);
-        }
-        else
-        {
-            kSaveWindow.restore(this, defaultLocation);
-        }
+        kSaveWindow.restoreOrCenter(this);
     }
 
     @Override

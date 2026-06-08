@@ -171,14 +171,7 @@ public class KDialog extends JDialog
         Point defaultLocation)
     {
         kSaveWindow = new SaveWindow(options, windowName);
-        if (defaultLocation == null)
-        {
-            kSaveWindow.restoreOrCenter(this);
-        }
-        else
-        {
-            kSaveWindow.restore(this, defaultLocation);
-        }
+        kSaveWindow.restoreOrCenter(this);
     }
 
     @Override

@@ -254,20 +254,19 @@ public final class BattleBoard extends KFrame
 
         // saveWindow stuff must be called AFTER pack()...
         saveWindow = new SaveWindow(gui.getOptions(), "BattleBoard");
-        Point defaultLoc = null;
-        // Center on MasterBoard if available
+        // Always center on MasterBoard — ignore saved positions from
+        // previous sessions that may be on a different monitor.
         javax.swing.JFrame masterFrame = gui.getBoard().getFrame();
         if (masterFrame != null && masterFrame.isVisible())
         {
             int x = masterFrame.getX() + (masterFrame.getWidth() - getWidth()) / 2;
             int y = masterFrame.getY() + (masterFrame.getHeight() - getHeight()) / 2;
-            defaultLoc = new Point(x, y);
+            setLocation(x, y);
         }
         else
         {
-            defaultLoc = new Point(0, 4 * Scale.get());
+            setLocationRelativeTo(null);
         }
-        saveWindow.restore(this, defaultLoc);
 
         setVisible(true);
 

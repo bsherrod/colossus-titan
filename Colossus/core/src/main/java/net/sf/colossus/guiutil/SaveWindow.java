@@ -122,15 +122,10 @@ public final class SaveWindow
         }
         window.setSize(size);
 
-        Point location = loadLocation();
-        if (location != null && window.isLocationOnOwnerScreen(location))
-        {
-            window.setLocation(location);
-        }
-        else
-        {
-            window.centerOnScreen();
-        }
+        // Always center on owner frame. Saved positions from previous
+        // sessions often end up on wrong monitors or in corners.
+        window.centerOnScreen();
+        window.centerOnScreen();
     }
 
     public void restoreOrCenter(KFrame window)
@@ -141,16 +136,6 @@ public final class SaveWindow
             size = window.getPreferredSize();
         }
         window.setSize(size);
-
-        Point location = loadLocation();
-        if (location != null)
-        {
-            window.setLocation(location);
-        }
-        else
-        {
-            window.centerOnScreen();
-        }
+        window.centerOnScreen();
     }
-
 }
