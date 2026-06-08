@@ -230,7 +230,7 @@ final public class SummonAngel
 
             saveWindow = new SaveWindow(gui.getOptions(), "SummonAngel");
             Point location = saveWindow.loadLocation();
-            if (location == null)
+            if (location == null || !isLocationOnOwnerScreen(location))
             {
                 centerOnScreen();
             }

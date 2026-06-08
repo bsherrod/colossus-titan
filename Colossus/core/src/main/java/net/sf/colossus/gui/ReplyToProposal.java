@@ -131,7 +131,7 @@ final class ReplyToProposal extends KDialog implements ActionListener
         saveWindow = new SaveWindow(options, "ReplyToProposal");
 
         location = saveWindow.loadLocation();
-        if (location == null)
+        if (location == null || !isLocationOnOwnerScreen(location))
         {
             centerOnScreen();
             location = getLocation();

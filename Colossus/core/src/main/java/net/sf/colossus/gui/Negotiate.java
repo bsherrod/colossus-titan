@@ -112,7 +112,7 @@ final class Negotiate extends KDialog
         saveWindow = new SaveWindow(gui.getOptions(), "Negotiate");
 
         location = saveWindow.loadLocation();
-        if (location == null)
+        if (location == null || !isLocationOnOwnerScreen(location))
         {
             centerOnScreen();
             location = getLocation();

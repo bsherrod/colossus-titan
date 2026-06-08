@@ -212,7 +212,7 @@ final class Concede extends KDialog
         {
             location = saveWindow.loadLocation();
         }
-        if (location == null)
+        if (location == null || !isLocationOnOwnerScreen(location))
         {
             centerOnScreen();
             location = getLocation();

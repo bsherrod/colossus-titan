@@ -122,7 +122,7 @@ final class PickRecruiter extends KDialog
         pack();
         saveWindow = new SaveWindow(gui.getOptions(), "PickRecruiter");
         Point location = saveWindow.loadLocation();
-        if (location == null)
+        if (location == null || !isLocationOnOwnerScreen(location))
         {
             centerOnScreen();
         }

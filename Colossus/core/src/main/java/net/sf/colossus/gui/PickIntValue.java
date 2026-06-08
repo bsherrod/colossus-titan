@@ -84,7 +84,7 @@ public final class PickIntValue extends KDialog
         pack();
         saveWindow = new SaveWindow(options, "PickIntValue");
         Point location = saveWindow.loadLocation();
-        if (location == null)
+        if (location == null || !isLocationOnOwnerScreen(location))
         {
             centerOnScreen();
         }

@@ -110,6 +110,8 @@ public final class SaveWindow
 
     /*
      * Restore size and location, center on screen if no saved location.
+     * If saved location is on a different screen than the owner window,
+     * ignore it and center on owner instead (multi-monitor fix).
      */
     public void restoreOrCenter(KDialog window)
     {
@@ -121,7 +123,7 @@ public final class SaveWindow
         window.setSize(size);
 
         Point location = loadLocation();
-        if (location != null)
+        if (location != null && window.isLocationOnOwnerScreen(location))
         {
             window.setLocation(location);
         }

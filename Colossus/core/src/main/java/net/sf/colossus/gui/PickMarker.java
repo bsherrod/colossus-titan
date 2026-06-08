@@ -104,7 +104,7 @@ final class PickMarker extends KDialog
         pack();
         saveWindow = new SaveWindow(options, "PickMarker");
         Point location = saveWindow.loadLocation();
-        if (location == null)
+        if (location == null || !isLocationOnOwnerScreen(location))
         {
             centerOnScreen();
         }

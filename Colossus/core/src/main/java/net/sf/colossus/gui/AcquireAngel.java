@@ -110,7 +110,7 @@ final class AcquireAngel extends KDialog
         pack();
         saveWindow = new SaveWindow(gui.getOptions(), "AcquireAngel");
         Point location = saveWindow.loadLocation();
-        if (location == null)
+        if (location == null || !isLocationOnOwnerScreen(location))
         {
             centerOnScreen();
         }

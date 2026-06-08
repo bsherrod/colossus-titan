@@ -399,7 +399,9 @@ public final class BattleServerSide extends Battle
                     attackerEntered = true;
                 }
                 // Berserker: active player declares berserk first
-                if (getActiveLegion() != null
+                // Only after turn 0 (first entry move has no combat yet)
+                if (battleTurnNumber > 1
+                    && getActiveLegion() != null
                     && getActiveLegion().getPlayer()
                         .hasPower(LauerPower.BERSERKER))
                 {
@@ -415,7 +417,7 @@ public final class BattleServerSide extends Battle
                     LOGGER.info("Battle phase advances to BERSERK (active)");
                     again = setupBerserk();
                 }
-                else
+                else if (battleTurnNumber > 1)
                 {
                     // Active player has no berserker, but other might
                     LegionTags otherTag = (activeLegionTag == LegionTags.ATTACKER)
@@ -448,6 +450,23 @@ public final class BattleServerSide extends Battle
                         {
                             again = setupFight();
                         }
+                    }
+                }
+                else
+                {
+                    // Turn 0: skip BERSERK, go straight to FIGHT
+                    setBattlePhase(BattlePhase.FIGHT);
+                    LOGGER.log(Level.INFO, "Battle phase advances to " + phase
+                        + " (turn 1, skipping BERSERK)");
+                    if (conceded)
+                    {
+                        LOGGER
+                            .log(Level.INFO, "Conceded - setting again to true.");
+                        again = true;
+                    }
+                    else
+                    {
+                        again = setupFight();
                     }
                 }
             }

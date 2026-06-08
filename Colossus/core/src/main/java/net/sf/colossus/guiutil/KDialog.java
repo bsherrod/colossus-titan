@@ -73,9 +73,19 @@ public class KDialog extends JDialog
      */
     public void centerOnScreen()
     {
-        Dimension d = Toolkit.getDefaultToolkit().getScreenSize();
-        setLocation(new Point(d.width / 2 - getSize().width / 2, d.height / 2
-            - getSize().height / 2));
+        // If we have an owner window, center over it instead of the
+        // primary monitor. This handles multi-monitor setups correctly.
+        java.awt.Window owner = getOwner();
+        if (owner != null && owner.isVisible())
+        {
+            setLocationRelativeTo(owner);
+        }
+        else
+        {
+            Dimension d = Toolkit.getDefaultToolkit().getScreenSize();
+            setLocation(new Point(d.width / 2 - getSize().width / 2,
+                d.height / 2 - getSize().height / 2));
+        }
     }
 
     /**
@@ -85,9 +95,20 @@ public class KDialog extends JDialog
      */
     public void centerOnScreen(int xoffset, int yoffset)
     {
-        Dimension d = Toolkit.getDefaultToolkit().getScreenSize();
-        setLocation(new Point((d.width / 2 - getSize().width / 2) + xoffset,
-            (d.height / 2 - getSize().height / 2) + yoffset));
+        java.awt.Window owner = getOwner();
+        if (owner != null && owner.isVisible())
+        {
+            setLocationRelativeTo(owner);
+            Point loc = getLocation();
+            setLocation(loc.x + xoffset, loc.y + yoffset);
+        }
+        else
+        {
+            Dimension d = Toolkit.getDefaultToolkit().getScreenSize();
+            setLocation(new Point(
+                (d.width / 2 - getSize().width / 2) + xoffset,
+                (d.height / 2 - getSize().height / 2) + yoffset));
+        }
     }
 
     /**
@@ -153,6 +174,25 @@ public class KDialog extends JDialog
             kSaveWindow.save(this);
         }
         super.setVisible(val);
+    }
+
+    /**
+     * Check if a point is on the same screen as this dialog's owner.
+     * Returns true if no owner or can't determine (safe fallback).
+     */
+    public boolean isLocationOnOwnerScreen(Point location)
+    {
+        java.awt.Window owner = getOwner();
+        if (owner == null || !owner.isVisible())
+        {
+            return true;
+        }
+        java.awt.GraphicsConfiguration gc = owner.getGraphicsConfiguration();
+        if (gc == null)
+        {
+            return true;
+        }
+        return gc.getBounds().contains(location);
     }
 
     @Override

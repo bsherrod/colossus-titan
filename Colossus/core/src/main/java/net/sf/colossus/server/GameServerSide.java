@@ -676,9 +676,9 @@ public class GameServerSide extends Game
         // Renumber players in descending tower order.
         sortPlayersDescendingTower();
 
-        // Re-write playerPowers options in post-sort order and re-sync
-        // to clients. syncOptions() already ran with pre-sort indices,
-        // so clients have stale power mappings. This corrects them.
+        // Re-write playerPowers options in post-sort order and sync to
+        // clients. syncOptions() skips playerPowers entirely, so this is
+        // the ONLY place powers are sent to clients — already in correct order.
         int pidx = 0;
         for (Player p : getPlayers())
         {
@@ -786,14 +786,13 @@ public class GameServerSide extends Game
         while (en.hasMoreElements())
         {
             String name = en.nextElement();
-            // Skip empty player powers (empty string causes protocol error)
+            // Skip ALL player powers here -- they are synced separately
+            // AFTER sortPlayersDescendingTower() in the correct order.
+            // Sending them here would use pre-sort indices which mismatch
+            // the post-sort player list the client reads against.
             if (name.startsWith(Options.playerPowers))
             {
-                String val = options.getStringOption(name);
-                if (val == null || val.isEmpty())
-                {
-                    continue;
-                }
+                continue;
             }
             String value = options.getStringOption(name);
 

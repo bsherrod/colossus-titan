@@ -65,7 +65,7 @@ final class PickCarry extends KDialog
         pack();
         saveWindow = new SaveWindow(gui.getOptions(), "PickCarry");
         Point location = saveWindow.loadLocation();
-        if (location == null)
+        if (location == null || !isLocationOnOwnerScreen(location))
         {
             centerOnScreen();
         }

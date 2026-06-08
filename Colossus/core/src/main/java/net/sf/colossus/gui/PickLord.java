@@ -62,7 +62,7 @@ final class PickLord extends KDialog
         pack();
         saveWindow = new SaveWindow(options, "PickLord");
         Point location = saveWindow.loadLocation();
-        if (location == null)
+        if (location == null || !isLocationOnOwnerScreen(location))
         {
             centerOnScreen();
         }
