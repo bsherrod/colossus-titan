@@ -122,17 +122,32 @@ public class KDialog extends JDialog
      */
     public Point getUpperRightCorner(int width)
     {
+        java.awt.Window owner = getOwner();
+        if (owner != null && owner.isVisible())
+        {
+            java.awt.Rectangle screen = owner.getGraphicsConfiguration().getBounds();
+            return new Point(screen.x + screen.width - width, screen.y);
+        }
         Dimension d = Toolkit.getDefaultToolkit().getScreenSize();
-        Point location = new Point(d.width - width, 0);
-        return location;
+        return new Point(d.width - width, 0);
     }
 
     // Move up a few pixels from the bottom, to help avoid taskbars.
     public void lowerRightCorner()
     {
-        Dimension d = Toolkit.getDefaultToolkit().getScreenSize();
-        setLocation(new Point(d.width - getSize().width, d.height
-            - getSize().height - 30));
+        java.awt.Window owner = getOwner();
+        if (owner != null && owner.isVisible())
+        {
+            java.awt.Rectangle screen = owner.getGraphicsConfiguration().getBounds();
+            setLocation(new Point(screen.x + screen.width - getSize().width,
+                screen.y + screen.height - getSize().height - 30));
+        }
+        else
+        {
+            Dimension d = Toolkit.getDefaultToolkit().getScreenSize();
+            setLocation(new Point(d.width - getSize().width, d.height
+                - getSize().height - 30));
+        }
     }
 
     /**

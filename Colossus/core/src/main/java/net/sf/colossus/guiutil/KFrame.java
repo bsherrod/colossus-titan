@@ -1,9 +1,7 @@
 package net.sf.colossus.guiutil;
 
 
-import java.awt.Dimension;
 import java.awt.Point;
-import java.awt.Toolkit;
 
 import javax.swing.JFrame;
 
@@ -88,12 +86,11 @@ public class KFrame extends JFrame
         kSaveWindow = null;
     }
 
-    /** Center this dialog on the screen.  Must be called after the dialog
-     *  size has been set. */
+    /** Center this frame on the screen.  Must be called after the
+     *  size has been set. Uses setLocationRelativeTo for proper
+     *  multi-monitor support. */
     public void centerOnScreen()
     {
-        Dimension d = Toolkit.getDefaultToolkit().getScreenSize();
-        setLocation(new Point(d.width / 2 - getSize().width / 2, d.height / 2
-            - getSize().height / 2));
+        setLocationRelativeTo(null);
     }
 }
