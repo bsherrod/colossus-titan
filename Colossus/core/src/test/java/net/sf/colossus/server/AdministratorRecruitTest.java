@@ -240,6 +240,96 @@ public class AdministratorRecruitTest extends TestCase
         assertEquals("Legion height must remain 7", 7, legion.getHeight());
     }
 
+    /**
+     * BUG: Recruiting Cyclops with 1 Gargoyle (Administrator -1) should
+     * add ONLY the Cyclops to the legion. The Gargoyle is the recruiter,
+     * not an additional recruit. Legion should go from height N to N+1.
+     */
+    public void testRecruitOnlyAddsOneCreature()
+    {
+        MasterHex brushHex = findHexByTerrain("Brush");
+        assertNotNull(brushHex);
+
+        CreatureType titan = variant.getCreatureByName("Titan");
+        CreatureType gargoyle = variant.getCreatureByName("Gargoyle");
+        CreatureType cyclops = variant.getCreatureByName("Cyclops");
+
+        // Start with [Titan, Gargoyle] = height 2
+        LegionServerSide legion = new LegionServerSide("Rd01", null,
+            brushHex, brushHex, player, game, titan, gargoyle);
+        player.addLegion(legion);
+
+        int heightBefore = legion.getHeight();
+        assertEquals("Should start at height 2", 2, heightBefore);
+
+        // Simulate what doRecruit does: add the recruit creature
+        boolean added = legion.addCreature(cyclops, true);
+        assertTrue("Should successfully add Cyclops", added);
+
+        assertEquals("After recruiting, height should be exactly +1",
+            heightBefore + 1, legion.getHeight());
+        assertEquals("Should have exactly 1 Gargoyle (the recruiter stays)",
+            1, legion.numCreature(gargoyle));
+        assertEquals("Should have exactly 1 Cyclops (the recruit)",
+            1, legion.numCreature(cyclops));
+    }
+
+    /**
+     * Verify a legion at height 7 cannot recruit even with Administrator.
+     * This was the 8-high bug: addCreature must reject at max height.
+     */
+    public void testCannotRecruitAtMaxHeight()
+    {
+        MasterHex brushHex = findHexByTerrain("Brush");
+        assertNotNull(brushHex);
+
+        CreatureType titan = variant.getCreatureByName("Titan");
+        CreatureType ogre = variant.getCreatureByName("Ogre");
+        CreatureType gargoyle = variant.getCreatureByName("Gargoyle");
+        CreatureType cyclops = variant.getCreatureByName("Cyclops");
+
+        // Legion at max height 7
+        LegionServerSide legion = new LegionServerSide("Rd01", null,
+            brushHex, brushHex, player, game,
+            titan, ogre, ogre, gargoyle, gargoyle, cyclops, cyclops);
+        player.addLegion(legion);
+        assertEquals(7, legion.getHeight());
+
+        // Try to add — must be rejected
+        boolean added = legion.addCreature(gargoyle, true);
+        assertFalse("Must reject addCreature at height 7", added);
+        assertEquals("Height must stay 7", 7, legion.getHeight());
+    }
+
+    /**
+     * BUG: When Administrator recruits Cyclops with 1 Gargoyle in Brush,
+     * the server sent numRecruiters=2 (unadjusted) to the client.
+     * The client's PredictSplitNode then adds a phantom Gargoyle.
+     * 
+     * Fix: computeNumRecruitersForClient must return 1 (not 2) for Administrator.
+     */
+    public void testNumRecruitersAdjustedForAdministrator()
+    {
+        MasterHex brushHex = findHexByTerrain("Brush");
+        assertNotNull(brushHex);
+
+        CreatureType titan = variant.getCreatureByName("Titan");
+        CreatureType gargoyle = variant.getCreatureByName("Gargoyle");
+        CreatureType cyclops = variant.getCreatureByName("Cyclops");
+
+        LegionServerSide legion = new LegionServerSide("Rd01", null,
+            brushHex, brushHex, player, game, titan, gargoyle);
+        player.addLegion(legion);
+
+        // This calls the actual server method that computes what's sent to clients
+        int numRecruiters = game.computeNumRecruitersForClient(
+            legion, gargoyle, cyclops);
+
+        assertEquals("Administrator must adjust numRecruiters from 2 to 1 "
+            + "(otherwise client adds phantom Gargoyle via PredictSplitNode)",
+            1, numRecruiters);
+    }
+
     private MasterHex findHexByTerrain(String terrainName)
     {
         for (MasterHex hex : variant.getMasterBoard().getAllHexes())

@@ -2578,6 +2578,29 @@ public class GameServerSide extends Game
      * Return true if this legion can recruit this recruit
      * without disclosing a recruiter.
      */
+    /**
+     * Compute the number of recruiters that would be revealed to clients.
+     * Applies Administrator -1 adjustment.
+     * Package-private for testing.
+     */
+    int computeNumRecruitersForClient(Legion legion, CreatureType recruiter,
+        CreatureType recruit)
+    {
+        if (recruiter == null)
+        {
+            return 0;
+        }
+        MasterHex hex = legion.getCurrentHex();
+        int numRecruiters = TerrainRecruitLoader.numberOfRecruiterNeeded(
+            recruiter, recruit, hex.getTerrain(), hex);
+        if (legion.getPlayer().hasPower(LauerPower.ADMINISTRATOR)
+            && numRecruiters > 1)
+        {
+            numRecruiters = numRecruiters - 1;
+        }
+        return numRecruiters;
+    }
+
     private boolean anonymousRecruitLegal(Legion legion, CreatureType recruit)
     {
         return TerrainRecruitLoader.anonymousRecruitLegal(recruit, legion
@@ -2642,6 +2665,12 @@ public class GameServerSide extends Game
                 // Mark the recruiter(s) as visible.
                 numRecruiters = TerrainRecruitLoader.numberOfRecruiterNeeded(
                     recruiter, recruit, hex.getTerrain(), hex);
+                // Administrator: the actual number used is one fewer
+                if (legion.getPlayer().hasPower(LauerPower.ADMINISTRATOR)
+                    && numRecruiters > 1)
+                {
+                    numRecruiters = numRecruiters - 1;
+                }
             }
 
             LOGGER.info("Legion "
