@@ -279,7 +279,7 @@ public enum LauerPower
     public String getDescription() { return description; }
     public String getFullDescription() { return description; }
     public Status getStatus() { return status; }
-    public String getLabel() { return status.getSymbol() + " " + displayName; }
+    public String getLabel() { return displayName; }
     public static LauerPower[] getAll() { return values(); }
     @Override public String toString() { return displayName; }
 }

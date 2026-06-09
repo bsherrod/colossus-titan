@@ -448,9 +448,12 @@ public final class LegionServerSide extends Legion implements
     boolean addCreature(CreatureType creature, boolean takeFromStack)
     {
         int maxHeight = getPlayer().getMaxLegionHeight();
-        assert getHeight() < maxHeight
-            || (getHeight() == maxHeight && game.getTurnNumber() == 1)
-            : "Tried to add to full legion!";
+        if (getHeight() >= maxHeight)
+        {
+            LOGGER.log(Level.SEVERE, "addCreature rejected: legion "
+                + getMarkerId() + " already at max height " + maxHeight);
+            return false;
+        }
         if (takeFromStack)
         {
             Caretaker caretaker = game.getCaretaker();

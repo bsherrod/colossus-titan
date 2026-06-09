@@ -211,6 +211,35 @@ public class AdministratorRecruitTest extends TestCase
             recruits.contains(gorgon));
     }
 
+    /**
+     * Administrator pre-battle recruit must NOT push legion over max height.
+     * A legion at 7 should not get an 8th creature from pre-battle recruit.
+     */
+    public void testPreBattleRecruitSkippedAtMaxHeight()
+    {
+        MasterHex brushHex = findHexByTerrain("Brush");
+        assertNotNull(brushHex);
+
+        CreatureType titan = variant.getCreatureByName("Titan");
+        CreatureType ogre = variant.getCreatureByName("Ogre");
+        CreatureType gargoyle = variant.getCreatureByName("Gargoyle");
+        CreatureType cyclops = variant.getCreatureByName("Cyclops");
+
+        // Create a legion at max height (7)
+        LegionServerSide legion = new LegionServerSide("Rd01", null,
+            brushHex, brushHex, player, game,
+            titan, ogre, ogre, gargoyle, gargoyle, cyclops, cyclops);
+        player.addLegion(legion);
+
+        assertEquals("Legion should be at height 7", 7, legion.getHeight());
+
+        // Attempt addCreature — should be rejected
+        boolean added = legion.addCreature(ogre, true);
+        assertFalse("addCreature must reject when legion is at max height",
+            added);
+        assertEquals("Legion height must remain 7", 7, legion.getHeight());
+    }
+
     private MasterHex findHexByTerrain(String terrainName)
     {
         for (MasterHex hex : variant.getMasterBoard().getAllHexes())

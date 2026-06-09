@@ -248,6 +248,9 @@ public class SimpleAI extends AbstractAI
         splitsDone = 0;
         splitsAcked = 0;
         teleportAttemptedThisTurn = false;
+        LOGGER.info("AI.split() start: " + player.getName()
+            + " legions=" + player.getNumLegions()
+            + " markers=" + remainingMarkers.size());
         for (Legion legion : player.getLegions())
         {
             if (remainingMarkers.isEmpty())
@@ -258,6 +261,9 @@ public class SimpleAI extends AbstractAI
         }
         remainingMarkers.clear();
         remainingMarkers = null;
+
+        LOGGER.info("AI.split() end: splitsDone=" + splitsDone
+            + " (returning " + (splitsDone <= 0 ? "DONE" : "WAITING") + ")");
 
         // if we did splits, don't signal to client that it's done;
         // because it would do doneWithSplits immediately;
@@ -270,6 +276,8 @@ public class SimpleAI extends AbstractAI
     public boolean splitCallback(Legion parent, Legion child)
     {
         splitsAcked++;
+        LOGGER.info("AI.splitCallback: acked=" + splitsAcked
+            + "/" + splitsDone + " parent=" + parent + " child=" + child);
         return splitsAcked >= splitsDone;
     }
 

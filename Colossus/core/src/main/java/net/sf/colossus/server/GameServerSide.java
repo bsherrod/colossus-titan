@@ -2601,7 +2601,7 @@ public class GameServerSide extends Game
             // If recruiter can be anonymous, then this is okay.
             if (!anonymousRecruitLegal(legion, recruit))
             {
-                LOGGER.log(Level.SEVERE, "null recruiter in Game.doRecruit()");
+                LOGGER.log(Level.SEVERE, "null recruiter in Game.doRecruit() for " + legion + " recruiting " + recruit.getName() + " player=" + legion.getPlayer().getName() + " hasPowers=" + legion.getPlayer().getPowers());
                 // XXX Let it go for now  Should return later
             }
             else

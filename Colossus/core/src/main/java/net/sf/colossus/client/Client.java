@@ -2803,6 +2803,17 @@ public final class Client implements IClient, IOracle, IVariant,
             {
                 doneWithSplits();
             }
+            else
+            {
+                LOGGER.info("kickSplit: AI returned not-done, waiting for "
+                    + "splitCallback from server");
+            }
+        }
+        else
+        {
+            LOGGER.fine("kickSplit: skipped (myTurn=" + isMyTurn()
+                + " autoSplit=" + autoplay.autoSplit()
+                + " gameOver=" + game.isGameOver() + ")");
         }
     }
 
