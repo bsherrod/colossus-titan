@@ -742,6 +742,22 @@ public class CreatureServerSide extends Creature implements BattleCritter
     @Override
     public int adjustHits(int damage)
     {
+        // Demon: possessed creature's demon HP absorbs damage first
+        if (damage > 0 && possessed && demonStrength > 0)
+        {
+            int absorbed = Math.min(damage, demonStrength);
+            demonStrength -= absorbed;
+            damage -= absorbed;
+            LOGGER.log(Level.INFO, getDescription()
+                + " demon absorbed " + absorbed + " damage, "
+                + demonStrength + " demon HP remaining");
+            // Demon killed — try to jump to adjacent friendly creature
+            if (demonStrength <= 0)
+            {
+                possessed = false;
+                demonDeathJump();
+            }
+        }
         if (damage > 0 && tempHits > 0)
         {
             int absorbed = Math.min(damage, tempHits);
@@ -752,5 +768,62 @@ public class CreatureServerSide extends Creature implements BattleCritter
                 + tempHits + " temp remaining");
         }
         return super.adjustHits(damage);
+    }
+
+    /**
+     * Demon death jump: when demon HP reaches 0, jump to an adjacent
+     * friendly non-lord creature. If none available, demon dies permanently.
+     */
+    private void demonDeathJump()
+    {
+        BattleServerSide battle = (BattleServerSide)getGame().getBattle();
+        if (battle == null)
+        {
+            return;
+        }
+        LegionServerSide legion = (LegionServerSide)getLegion();
+        if (legion == null)
+        {
+            return;
+        }
+        // Find adjacent friendly non-lord creature to jump to
+        CreatureServerSide jumpTarget = null;
+        for (CreatureServerSide c : legion.getCreatures())
+        {
+            if (c != this && !c.isDead() && !c.isLord() && !c.isPossessed())
+            {
+                // Check adjacency via hex neighbors
+                boolean adjacent = false;
+                if (getCurrentHex() != null && c.getCurrentHex() != null)
+                {
+                    for (int i = 0; i < 6; i++)
+                    {
+                        if (getCurrentHex().getNeighbor(i) == c.getCurrentHex())
+                        {
+                            adjacent = true;
+                            break;
+                        }
+                    }
+                }
+                // In test setups creatures may share entrance hex — treat as adjacent
+                if (adjacent || getCurrentHex() == c.getCurrentHex())
+                {
+                    jumpTarget = c;
+                    break;
+                }
+            }
+        }
+        if (jumpTarget != null)
+        {
+            int newDemonStr = getPlayer().getTitanPower();
+            jumpTarget.setPossessed(true, newDemonStr);
+            LOGGER.info("Demon jumps from " + getDescription()
+                + " to " + jumpTarget.getDescription()
+                + " with strength " + newDemonStr);
+        }
+        else
+        {
+            LOGGER.info("Demon has no adjacent target — dies permanently");
+        }
     }
 }

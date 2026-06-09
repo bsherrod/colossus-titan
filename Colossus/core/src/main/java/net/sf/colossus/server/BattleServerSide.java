@@ -676,10 +676,36 @@ public final class BattleServerSide extends Battle
         return recruitReinforcement();
     }
 
-    private boolean setupMove()
+    boolean setupMove()
     {
-        // Lord of Trees: regen floor(str/6) hits for creatures in tree/sapling
+        // Demon: auto-possess strongest non-lord creature on first MOVE phase
         LegionServerSide activeLegion = getActiveLegion();
+        if (activeLegion != null
+            && activeLegion.getPlayer().hasPower(LauerPower.DEMON)
+            && battleTurnNumber == 1
+            && !hasPossessedCreature(activeLegion))
+        {
+            CreatureServerSide best = null;
+            int bestPower = 0;
+            for (CreatureServerSide c : activeLegion.getCreatures())
+            {
+                if (!c.isDead() && !c.isTitan() && !c.isLord()
+                    && c.getPower() > bestPower)
+                {
+                    best = c;
+                    bestPower = c.getPower();
+                }
+            }
+            if (best != null)
+            {
+                int demonStr = activeLegion.getPlayer().getTitanPower();
+                best.setPossessed(true, demonStr);
+                LOGGER.info("Demon auto-possesses " + best.getDescription()
+                    + " with strength " + demonStr);
+            }
+        }
+
+        // Lord of Trees: regen floor(str/6) hits for creatures in tree/sapling
         if (activeLegion != null
             && activeLegion.getPlayer().hasPower(LauerPower.LORD_OF_THE_TREES))
         {
@@ -712,8 +738,37 @@ public final class BattleServerSide extends Battle
             LOGGER.info("The Folks: spawned " + folkCreatureType.getName()
                 + " (" + folkCreaturesRemaining + " remaining)");
         }
-        server.allSetupBattleMove();
+        if (server != null) { server.allSetupBattleMove(); }
         return false;
+    }
+
+    /** Check if any creature in the legion is already possessed by the demon. */
+    private boolean hasPossessedCreature(LegionServerSide legion)
+    {
+        for (CreatureServerSide c : legion.getCreatures())
+        {
+            if (c.isPossessed())
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Demon: end possession. The demon leaves the creature but retains
+     * its remaining HP (demonStrength) for future possession.
+     */
+    void doUnpossess(CreatureServerSide creature)
+    {
+        if (creature == null || !creature.isPossessed())
+        {
+            return;
+        }
+        // Keep demonStrength intact for future re-possession
+        creature.setPossessed(false, creature.getDemonStrength());
+        LOGGER.info("Demon unpossesses " + creature.getDescription()
+            + ", retaining " + creature.getDemonStrength() + " demon HP");
     }
 
     /** Ninja: check if active player has unengaged creatures eligible for post-strike move */

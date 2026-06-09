@@ -137,6 +137,12 @@ public class BattleStrikeServerSide
             {
                 dice += striker.getPower() / 4;
             }
+            // Demon: possessed creature gets bonus dice = demonStrength
+            if (striker instanceof CreatureServerSide
+                && ((CreatureServerSide)striker).isPossessed())
+            {
+                dice += ((CreatureServerSide)striker).getDemonStrength();
+            }
             // Ninja death strike: +remaining_hits bonus dice
             if (strikerPlayer.hasPower(LauerPower.NINJA)
                 && striker instanceof CreatureServerSide

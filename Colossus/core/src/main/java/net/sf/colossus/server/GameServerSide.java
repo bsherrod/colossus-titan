@@ -2537,7 +2537,7 @@ public class GameServerSide extends Game
     }
 
     /** Return a list of eligible recruiter creatures. */
-    private List<CreatureType> findEligibleRecruiters(Legion legion,
+    List<CreatureType> findEligibleRecruiters(Legion legion,
         String recruitName)
     {
         List<CreatureType> recruiters;
@@ -2556,6 +2556,12 @@ public class GameServerSide extends Game
             CreatureType possibleRecruiter = it.next();
             int needed = TerrainRecruitLoader.numberOfRecruiterNeeded(
                 possibleRecruiter, recruit, terrain, hex);
+            // Administrator: need one fewer creature for upward recruiting
+            if (legion.getPlayer().hasPower(LauerPower.ADMINISTRATOR)
+                && needed > 1)
+            {
+                needed = needed - 1;
+            }
 
             if (needed < 1
                 || needed > ((LegionServerSide)legion)

@@ -443,6 +443,13 @@ public final class Client implements IClient, IOracle, IVariant,
         // Need to load options early so they don't overwrite server options.
         options.loadOptions();
 
+        // Clear stale playerPowers — these are managed by the server and
+        // synced post-sort. Client must not retain values from prior games.
+        for (int pi = 0; pi < 12; pi++)
+        {
+            options.removeOption(Options.playerPowers + pi);
+        }
+
         // Moved AI creation after loadOptions so that we can refer to
         // preferredAI option.
         this.ai = createAI(playerType);
@@ -3953,9 +3960,30 @@ public final class Client implements IClient, IOracle, IVariant,
             {
                 for (CreatureType lesser : recruiters)
                 {
-                    if ((TerrainRecruitLoader.numberOfRecruiterNeeded(lesser,
-                        creature, terrain, hex) <= ((LegionClientSide)legion)
-                        .numCreature(lesser))
+                    int needed = TerrainRecruitLoader.numberOfRecruiterNeeded(
+                        lesser, creature, terrain, hex);
+                    // Administrator: need one fewer creature for upward recruiting
+                    if (legion.getPlayer().hasPower(LauerPower.ADMINISTRATOR)
+                        && needed > 1)
+                    {
+                        needed = needed - 1;
+                    }
+                    int available = ((LegionClientSide)legion)
+                        .numCreature(lesser);
+                    // Lord of Trees: +1 phantom warbear/minotaur/troll/cyclops
+                    if (legion.getPlayer().hasPower(
+                        LauerPower.LORD_OF_THE_TREES))
+                    {
+                        String lname = lesser.getName();
+                        if (lname.equals("Warbear")
+                            || lname.equals("Minotaur")
+                            || lname.equals("Troll")
+                            || lname.equals("Cyclops"))
+                        {
+                            available = available + 1;
+                        }
+                    }
+                    if ((needed <= available)
                         && (recruits.indexOf(creature) == -1))
                     {
                         recruits.add(creature);
@@ -3964,11 +3992,106 @@ public final class Client implements IClient, IOracle, IVariant,
             }
         }
 
+        // Administrator: recruit any terrain creature with any creature
+        // in group worth at least 25% more points
+        if (legion.getPlayer().hasPower(LauerPower.ADMINISTRATOR))
+        {
+            int maxPointsInLegion = 0;
+            for (CreatureType c : ((LegionClientSide)legion).getCreatureTypes())
+            {
+                int pv = c.getPointValue();
+                if (pv > maxPointsInLegion)
+                {
+                    maxPointsInLegion = pv;
+                }
+            }
+            for (CreatureType creature : tempRecruits)
+            {
+                // 25% more = recruiter*4 >= target*5
+                if (!recruits.contains(creature)
+                    && maxPointsInLegion * 4 >= creature.getPointValue() * 5)
+                {
+                    recruits.add(creature);
+                }
+            }
+        }
+
+        // The Folks: always recruit weakest creature in terrain,
+        // even from dead pile (bypasses caretaker availability)
+        if (legion.getPlayer().hasPower(LauerPower.THE_FOLKS)
+            && !tempRecruits.isEmpty())
+        {
+            CreatureType weakest = tempRecruits.get(0);
+            if (!recruits.contains(weakest))
+            {
+                recruits.add(0, weakest);
+            }
+        }
+
+        // Living Dead: recruit any terrain creature from dead pile
+        if (legion.getPlayer().hasPower(LauerPower.LIVING_DEAD))
+        {
+            for (CreatureType creature : tempRecruits)
+            {
+                if (!recruits.contains(creature)
+                    && getGame().getCaretaker().getDeadCount(creature) > 0)
+                {
+                    recruits.add(creature);
+                }
+            }
+        }
+
+        // Zombie: recruit any dead-pile creature with point value <= max in legion
+        if (legion.getPlayer().hasPower(LauerPower.ZOMBIE))
+        {
+            int maxPointsInLegion = 0;
+            for (CreatureType c : ((LegionClientSide)legion).getCreatureTypes())
+            {
+                int pv = c.getPointValue();
+                if (pv > maxPointsInLegion)
+                {
+                    maxPointsInLegion = pv;
+                }
+            }
+            for (CreatureType ct : getGame().getVariant().getCreatureTypes())
+            {
+                if (!ct.isLord() && !recruits.contains(ct)
+                    && getGame().getCaretaker().getDeadCount(ct) > 0
+                    && ct.getPointValue() <= maxPointsInLegion)
+                {
+                    recruits.add(ct);
+                }
+            }
+        }
+
         // Make sure that the potential recruits are available.
+        // Exception: Folks' weakest creature bypasses availability
+        CreatureType folksWeakest = null;
+        if (legion.getPlayer().hasPower(LauerPower.THE_FOLKS)
+            && !tempRecruits.isEmpty())
+        {
+            folksWeakest = tempRecruits.get(0);
+        }
         Iterator<CreatureType> it = recruits.iterator();
         while (it.hasNext())
         {
             CreatureType recruit = it.next();
+            if (recruit == folksWeakest)
+            {
+                continue; // Folks bypasses availability for weakest
+            }
+            // Living Dead: available from dead pile counts
+            if (legion.getPlayer().hasPower(LauerPower.LIVING_DEAD)
+                && getGame().getCaretaker().getDeadCount(recruit) > 0)
+            {
+                continue;
+            }
+            // Zombie: dead-pile creatures bypass availability
+            if (legion.getPlayer().hasPower(LauerPower.ZOMBIE)
+                && getGame().getCaretaker().getDeadCount(recruit) > 0)
+            {
+                continue;
+            }
             int remaining = getGame().getCaretaker()
                 .getAvailableCount(recruit);
 
@@ -4010,7 +4133,24 @@ public final class Client implements IClient, IOracle, IVariant,
             CreatureType possibleRecruiter = it.next();
             int needed = TerrainRecruitLoader.numberOfRecruiterNeeded(
                 possibleRecruiter, recruit, terrain, hex);
-            if (needed < 1 || needed > legion.numCreature(possibleRecruiter))
+            // Administrator: need one fewer
+            if (legion.getPlayer().hasPower(LauerPower.ADMINISTRATOR)
+                && needed > 1)
+            {
+                needed = needed - 1;
+            }
+            int avail = legion.numCreature(possibleRecruiter);
+            // Lord of Trees: +1 phantom warbear/minotaur/troll/cyclops
+            if (legion.getPlayer().hasPower(LauerPower.LORD_OF_THE_TREES))
+            {
+                String rname = possibleRecruiter.getName();
+                if (rname.equals("Warbear") || rname.equals("Minotaur")
+                    || rname.equals("Troll") || rname.equals("Cyclops"))
+                {
+                    avail = avail + 1;
+                }
+            }
+            if (needed < 1 || needed > avail)
             {
                 // Zap this possible recruiter.
                 it.remove();
