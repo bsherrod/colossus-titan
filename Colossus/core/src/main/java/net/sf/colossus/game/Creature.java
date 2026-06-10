@@ -376,6 +376,13 @@ public class Creature
 
     public boolean useMagicMissile()
     {
+        // Archmage: Titan rangestrikes with warlock abilities (magic missile)
+        Player player = getPlayer();
+        if (player != null && player.hasPower(LauerPower.ARCHMAGE)
+            && isTitan())
+        {
+            return true;
+        }
         return getType().useMagicMissile();
     }
 
