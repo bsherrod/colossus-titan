@@ -627,6 +627,12 @@ abstract public class Battle
     {
         int range = getRange(currentHex, targetHex, false);
         int skill = critter.getType().getSkill();
+        // Archer: +1 range (skill 3 -> range 4, skill 2 -> range 3)
+        Player player = critter.getPlayer();
+        if (player != null && player.hasPower(LauerPower.ARCHER))
+        {
+            skill++;
+        }
         if (range > skill)
         {
             return false;

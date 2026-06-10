@@ -58,8 +58,29 @@ public final class Dice
         return roll;
     }
 
+    private static int[] scriptedRolls = null;
+    private static int scriptedIndex = 0;
+
+    /** Queue predetermined dice results for testing. */
+    public static void setScriptedRolls(int... rolls)
+    {
+        scriptedRolls = rolls;
+        scriptedIndex = 0;
+    }
+
+    /** Clear scripted rolls, return to normal random behavior. */
+    public static void clearScriptedRolls()
+    {
+        scriptedRolls = null;
+        scriptedIndex = 0;
+    }
+
     public static int rollDie(int size)
     {
+        if (scriptedRolls != null && scriptedIndex < scriptedRolls.length)
+        {
+            return scriptedRolls[scriptedIndex++];
+        }
         return random.nextInt(size) + 1;
     }
 

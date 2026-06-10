@@ -1149,6 +1149,14 @@ final class ClientHandler extends ClientHandlerStub implements IClient
      */
     private void callMethod(String method, List<String> args)
     {
+        // Record for replay testing (non-destructive, always-on)
+        if (GameRecorder.instance() != null && server.getGame() != null)
+        {
+            GameRecorder.instance().record(method,
+                new java.util.ArrayList<String>(args),
+                getPlayerName(), server.getGame());
+        }
+
         if (method.equals(Constants.signOn))
         {
             String signonTryName = args.remove(0);

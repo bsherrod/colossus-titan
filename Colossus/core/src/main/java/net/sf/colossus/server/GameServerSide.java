@@ -529,6 +529,7 @@ public class GameServerSide extends Game
 
     private void cleanupWhenGameOver()
     {
+        GameRecorder.stop();
         server.waitUntilGameFinishes();
         if (diceStatCollector != null)
         {
@@ -591,6 +592,9 @@ public class GameServerSide extends Game
         }
 
         getVariant().getCreatureByName("Titan").setMaxCount(getNumPlayers());
+
+        // Start recording for replay tests
+        GameRecorder.start(this);
     }
 
     public boolean startNewGameAndWaitUntilOver(String hostingPlayer)

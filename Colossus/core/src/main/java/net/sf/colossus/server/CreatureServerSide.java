@@ -130,6 +130,12 @@ public class CreatureServerSide extends Creature implements BattleCritter
         return crossbowUsed;
     }
 
+    /** Package-private: for testing only. */
+    void markCrossbowUsed()
+    {
+        crossbowUsed = true;
+    }
+
     public boolean isNineball()
     {
         return nineball;
