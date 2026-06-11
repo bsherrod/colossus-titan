@@ -1086,6 +1086,32 @@ public class GameServerSide extends Game
                 MasterHex tower = player.getStartingTower();
                 CreatureType[] startCre = TerrainRecruitLoader
                     .getStartingCreatures(tower);
+
+                // Amoeba: remove Titan and Angel from starting legion,
+                // replace with tower creatures. Result: 3 legions of 4.
+                LegionServerSide firstLegion =
+                    (LegionServerSide)player.getLegions().get(0);
+                CreatureType titan = getVariant().getCreatureByName("Titan");
+                CreatureType angel = getVariant().getCreatureByName(
+                    getVariant().getPrimaryAcquirable());
+                if (titan != null)
+                {
+                    firstLegion.removeCreature(titan);
+                    getCaretaker().putOneBack(titan);
+                }
+                if (angel != null)
+                {
+                    firstLegion.removeCreature(angel);
+                    getCaretaker().putOneBack(angel);
+                }
+                // First legion now has 6 tower creatures (2 of each).
+                // Remove 2 to get to 4: remove startCre[1] and startCre[2]
+                firstLegion.removeCreature(startCre[1]);
+                firstLegion.removeCreature(startCre[2]);
+                // First legion: 4 creatures (startCre[0]×2, startCre[1]×1... 
+                // Actually: after removing titan+angel+2 more = 4 remain)
+
+                // Create 2 extra legions of 4 each
                 for (int leg = 0; leg < 2; leg++)
                 {
                     String markerId = player.getFirstMarker();
@@ -3106,7 +3132,8 @@ public class GameServerSide extends Game
             }
         }
 
-        if (getTurnNumber() == 1 && !player.hasPower(LauerPower.NINE_BALL))
+        if (getTurnNumber() == 1 && !player.hasPower(LauerPower.NINE_BALL)
+            && !player.hasPower(LauerPower.AMOEBA))
         {
             // Only allow a single split on turn 1.
             if (player.getLegions().size() > 1)

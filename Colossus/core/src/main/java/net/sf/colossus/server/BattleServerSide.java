@@ -78,6 +78,9 @@ public final class BattleServerSide extends Battle
     private int folkCreaturesRemaining = 0;
     private CreatureType folkCreatureType = null;
 
+    /** Package-private: for testing. */
+    CreatureType getFolkCreatureType() { return folkCreatureType; }
+
     /** Lord of Trees: saplings planted during battle. Maps hex to HP. */
     private final java.util.Map<BattleHex, Integer> saplings =
         new java.util.HashMap<BattleHex, Integer>();
@@ -180,23 +183,28 @@ public final class BattleServerSide extends Battle
         }
     }
 
-    private void initFolkCreatures(LegionServerSide legion)
+    void initFolkCreatures(LegionServerSide legion)
     {
         if (legion.getPlayer().hasPower(LauerPower.THE_FOLKS))
         {
             // Budget = 50% of legion's total point value
             int legionValue = legion.getPointValue();
             int budget = legionValue / 2;
-            // Find cheapest creature available in this terrain
-            // For now, use the weakest creature in the legion as the folk type
-            int cheapestValue = Integer.MAX_VALUE;
+            // Find weakest creature available in this TERRAIN
+            // Rule: "the extra creature is the weakest available in that terrain"
+            MasterHex battleHex = getLocation();
+            java.util.List<net.sf.colossus.variant.CreatureType> tempRecruits =
+                net.sf.colossus.xmlparser.TerrainRecruitLoader
+                    .getPossibleRecruits(battleHex.getTerrain(), battleHex);
             CreatureType cheapest = null;
-            for (Creature c : legion.getCreatures())
+            int cheapestValue = Integer.MAX_VALUE;
+            for (net.sf.colossus.variant.CreatureType ct : tempRecruits)
             {
-                if (!c.getType().isLord() && c.getPointValue() < cheapestValue)
+                int pv = ct.getPointValue();
+                if (pv > 0 && pv < cheapestValue)
                 {
-                    cheapestValue = c.getPointValue();
-                    cheapest = c.getType();
+                    cheapestValue = pv;
+                    cheapest = ct;
                 }
             }
             if (cheapest != null && cheapestValue > 0)
