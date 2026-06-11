@@ -3459,12 +3459,119 @@ public class GameServerSide extends Game
         Legion attacker = getFirstFriendlyLegion(hex, player);
         Legion defender = getFirstEnemyLegion(hex, player);
 
-        // Administrator: defender may recruit before battle
-        administratorPreBattleRecruit((LegionServerSide)defender, hex);
-        // Administrator: attacker may also recruit before battle
-        administratorPreBattleRecruit((LegionServerSide)attacker, hex);
+        // Administrator: defender and attacker may recruit before battle.
+        // For human players, this shows a recruit dialog (async).
+        // For AI players, auto-picks immediately.
+        startPreBattleRecruit(hex, (LegionServerSide)defender,
+            (LegionServerSide)attacker);
+    }
 
+    /** State for async pre-battle recruit chain. */
+    private LegionServerSide preBattleAttacker;
+    private MasterHex preBattleHex;
+    private boolean preBattleRecruitPending = false;
+    private boolean preBattleDefenderDone = false;
+
+    /**
+     * Start the pre-battle recruit chain: defender first, then attacker.
+     */
+    private void startPreBattleRecruit(MasterHex hex,
+        LegionServerSide defender, LegionServerSide attacker)
+    {
+        preBattleAttacker = attacker;
+        preBattleHex = hex;
+        preBattleDefenderDone = false;
+
+        if (shouldAskPreBattleRecruit(defender, hex))
+        {
+            if (defender.getPlayer().isAI())
+            {
+                administratorPreBattleRecruit(defender, hex);
+                preBattleDefenderDone = true;
+                continuePreBattleRecruitForAttacker();
+            }
+            else
+            {
+                preBattleRecruitPending = true;
+                server.reinforce(defender);
+            }
+        }
+        else
+        {
+            preBattleDefenderDone = true;
+            continuePreBattleRecruitForAttacker();
+        }
+    }
+
+    /**
+     * Continue to attacker after defender's pre-battle recruit is done.
+     */
+    void continuePreBattleRecruitForAttacker()
+    {
+        LegionServerSide attacker = preBattleAttacker;
+        MasterHex hex = preBattleHex;
+
+        if (shouldAskPreBattleRecruit(attacker, hex))
+        {
+            if (attacker.getPlayer().isAI())
+            {
+                administratorPreBattleRecruit(attacker, hex);
+                finishPreBattleRecruit();
+            }
+            else
+            {
+                preBattleRecruitPending = true;
+                server.reinforce(attacker);
+            }
+        }
+        else
+        {
+            finishPreBattleRecruit();
+        }
+    }
+
+    /**
+     * Called when the pre-battle recruit response comes back from client.
+     */
+    void doneWithPreBattleRecruit()
+    {
+        preBattleRecruitPending = false;
+
+        if (!preBattleDefenderDone)
+        {
+            preBattleDefenderDone = true;
+            continuePreBattleRecruitForAttacker();
+        }
+        else
+        {
+            finishPreBattleRecruit();
+        }
+    }
+
+    private void finishPreBattleRecruit()
+    {
+        MasterHex hex = preBattleHex;
+        preBattleAttacker = null;
+        preBattleHex = null;
+
+        Player player = getActivePlayer();
+        Legion attacker = getFirstFriendlyLegion(hex, player);
+        Legion defender = getFirstEnemyLegion(hex, player);
         server.askConcede(attacker, defender);
+    }
+
+    private boolean shouldAskPreBattleRecruit(LegionServerSide legion,
+        MasterHex hex)
+    {
+        return legion != null
+            && legion.getPlayer().hasPower(LauerPower.ADMINISTRATOR)
+            && legion.getHeight() < legion.getPlayer().getMaxLegionHeight()
+            && !findEligibleRecruits(legion, hex).isEmpty();
+    }
+
+    boolean isPreBattleRecruitPending()
+    {
+        return preBattleRecruitPending;
     }
 
     // Attacker did not concede early; negotiate.

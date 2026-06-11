@@ -134,9 +134,9 @@ public class GameReplay
             {
                 int seqPos = eventsBlock.indexOf("\"seq\":", pos);
                 if (seqPos < 0) break;
-                int seq = extractInt(eventsBlock, seqPos + 5);
+                int seq = extractInt(eventsBlock, seqPos + 6);
                 int turnPos = eventsBlock.indexOf("\"turn\":", seqPos);
-                int turn = extractInt(eventsBlock, turnPos + 6);
+                int turn = extractInt(eventsBlock, turnPos + 7);
                 int phasePos = eventsBlock.indexOf("\"phase\":\"", seqPos);
                 String phase = extractAfter(eventsBlock, phasePos + 9);
                 int playerPos = eventsBlock.indexOf("\"player\":\"", seqPos);
@@ -161,7 +161,9 @@ public class GameReplay
 
                 events.add(new ReplayEvent(seq, turn, phase, player,
                     method, args));
-                pos = seqPos + 10;
+                // Advance past this event (find next closing brace)
+                int eventEnd = eventsBlock.indexOf("}", argsPos);
+                pos = (eventEnd > 0) ? eventEnd + 1 : seqPos + 10;
             }
         }
 

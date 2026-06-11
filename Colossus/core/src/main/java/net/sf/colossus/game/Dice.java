@@ -26,6 +26,29 @@ public final class Dice
     private static Random random = new DevRandom();
     private static final int[] stats = new int[6];
     private static int rcount = 0;
+    private static long replaySeed = -1;
+
+    /** Get a seed for deterministic replay. Call at game start. */
+    public static long captureSeed()
+    {
+        long seed = System.nanoTime();
+        random = new java.util.Random(seed);
+        replaySeed = seed;
+        return seed;
+    }
+
+    /** Set seed for deterministic replay. Call before replaying a recording. */
+    public static void setReplaySeed(long seed)
+    {
+        random = new java.util.Random(seed);
+        replaySeed = seed;
+    }
+
+    /** Get the current replay seed (-1 if not set). */
+    public static long getReplaySeed()
+    {
+        return replaySeed;
+    }
 
     static void init(String source)
     {

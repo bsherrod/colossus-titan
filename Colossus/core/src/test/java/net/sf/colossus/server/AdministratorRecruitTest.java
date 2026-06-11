@@ -470,6 +470,82 @@ public class AdministratorRecruitTest extends TestCase
             legion.numCreature(cyclops) == 1);
     }
 
+    /**
+     * Administrator pre-battle recruit should be available to human players.
+     * When a human player's legion with Administrator engages an enemy,
+     * findEligibleRecruits must return non-empty for the engagement hex.
+     * This is a prerequisite for showing a recruit dialog pre-battle.
+     *
+     * Tests the availability check that determines whether a recruit
+     * dialog should appear. Uses getMaxLegionHeight() to respect
+     * power/variant-specific height limits (e.g., Nine Ball = 9).
+     */
+    public void testPreBattleRecruitAvailableForHumanAttacker()
+    {
+        MasterHex hillsHex = findHexByTerrain("Hills");
+        assertNotNull(hillsHex);
+
+        CreatureType ogre = variant.getCreatureByName("Ogre");
+        CreatureType gargoyle = variant.getCreatureByName("Gargoyle");
+        CreatureType minotaur = variant.getCreatureByName("Minotaur");
+
+        // Human attacker: [Ogre, Ogre, Gargoyle] on Hills, Administrator
+        LegionServerSide legion = new LegionServerSide("Rd01", null,
+            hillsHex, hillsHex, player, game, ogre, ogre, gargoyle);
+        player.addLegion(legion);
+
+        // Preconditions for showing recruit dialog:
+        // 1. Player has ADMINISTRATOR
+        assertTrue("Player must have Administrator",
+            player.hasPower(LauerPower.ADMINISTRATOR));
+
+        // 2. Legion height < maxLegionHeight (has room)
+        assertTrue("Legion must have room to recruit",
+            legion.getHeight() < player.getMaxLegionHeight());
+
+        // 3. Eligible recruits exist on this hex
+        java.util.List<CreatureType> recruits = game.findEligibleRecruits(
+            legion, hillsHex);
+        assertFalse("Must have eligible recruits on engagement hex. "
+            + "If empty, no dialog would be shown.",
+            recruits.isEmpty());
+
+        // 4. Verify Minotaur specifically (2 Ogres with Admin -1 = need 2)
+        assertTrue("Minotaur should be in eligible recruits. Got: " + recruits,
+            recruits.contains(minotaur));
+    }
+
+    /**
+     * Pre-battle recruit should NOT be available when legion is full.
+     * Respects getMaxLegionHeight() which varies by power/variant
+     * (default 7, Nine Ball = 9).
+     */
+    public void testPreBattleRecruitSkippedWhenFullRespectingMaxHeight()
+    {
+        MasterHex brushHex = findHexByTerrain("Brush");
+        assertNotNull(brushHex);
+
+        CreatureType titan = variant.getCreatureByName("Titan");
+        CreatureType ogre = variant.getCreatureByName("Ogre");
+        CreatureType gargoyle = variant.getCreatureByName("Gargoyle");
+        CreatureType cyclops = variant.getCreatureByName("Cyclops");
+
+        // Legion at max height (7 = default maxLegionHeight)
+        LegionServerSide legion = new LegionServerSide("Rd01", null,
+            brushHex, brushHex, player, game,
+            titan, ogre, ogre, gargoyle, gargoyle, cyclops, cyclops);
+        player.addLegion(legion);
+
+        assertEquals("Legion at max height", 7, legion.getHeight());
+        assertEquals("Default max is 7", 7, player.getMaxLegionHeight());
+
+        // Pre-battle recruit should NOT fire (no room)
+        int heightBefore = legion.getHeight();
+        game.administratorPreBattleRecruit(legion, brushHex);
+        assertEquals("Must NOT recruit when at max height",
+            heightBefore, legion.getHeight());
+    }
+
     private MasterHex findHexByTerrain(String terrainName)
     {
         for (MasterHex hex : variant.getMasterBoard().getAllHexes())

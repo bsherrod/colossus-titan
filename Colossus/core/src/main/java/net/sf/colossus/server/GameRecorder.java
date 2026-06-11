@@ -100,9 +100,10 @@ public class GameRecorder
         try
         {
             writer.write("{\"header\":{");
-            writer.write("\"version\":1,");
+            writer.write("\"version\":2,");
             writer.write("\"variant\":\"" + game.getVariant().getName() + "\",");
             writer.write("\"timestamp\":\"" + new Date() + "\",");
+            writer.write("\"randomSeed\":" + Dice.captureSeed() + ",");
             writer.write("\"players\":[");
             java.util.Collection<? extends net.sf.colossus.game.Player> players = game.getPlayers();
             int i = 0; for (net.sf.colossus.game.Player p : players)

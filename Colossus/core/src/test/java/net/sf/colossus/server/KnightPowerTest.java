@@ -218,4 +218,31 @@ public class KnightPowerTest extends TestCase
         assertTrue("Gorgon with Knight can also rangestrike in STRIKEBACK (crossbow)",
             targets2.contains(target2.getCurrentHex()));
     }
+
+    /**
+     * Knight melee bonus: +floor(str/2) to melee strikes only.
+     * Ogre (str 6): melee dice = 6 + floor(6/2) = 9.
+     * Rangestrike: no bonus (base/2 = 3 for rangestrike).
+     */
+    public void testMeleeBonusFloorStrDiv2()
+    {
+        CreatureType ogre = variant.getCreatureByName("Ogre");
+        CreatureType troll = variant.getCreatureByName("Troll");
+
+        BattleServerSide battle = setupBattle(BattlePhase.FIGHT,
+            new CreatureType[]{ogre}, new CreatureType[]{troll});
+
+        CreatureServerSide striker = battle.getAttackingLegion().getCritter(0);
+        CreatureServerSide target = battle.getDefendingLegion().getCritter(0);
+
+        net.sf.colossus.variant.MasterBoardTerrain terrain =
+            battle.getLocation().getTerrain();
+        striker.setCurrentHex(terrain.getHexByLabel("C3"));
+        target.setCurrentHex(terrain.getHexByLabel("C4"));
+
+        BattleStrikeServerSide strike = new BattleStrikeServerSide(game);
+        // Melee: 6 + floor(6/2) = 9
+        assertEquals("Knight Ogre melee dice", 9,
+            strike.getDice(striker, target, false));
+    }
 }

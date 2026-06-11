@@ -18,7 +18,7 @@ public final class Constants
     // Special feature to end the game after one battle is completed,
     // for tuning the AI
     private static final String END_AFTER_FIRST_BATTLE_PROPERTY = "net.sf.colossus.endAfterFirstBattle";
-    public static final boolean END_AFTER_FIRST_BATTLE = Boolean.valueOf(
+    public static boolean END_AFTER_FIRST_BATTLE = Boolean.valueOf(
         System.getProperty(END_AFTER_FIRST_BATTLE_PROPERTY, "false")
             .toString()).booleanValue();
 

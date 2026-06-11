@@ -65,36 +65,8 @@ curl -X POST "http://127.0.0.1:7777/api/autonudge?token=$TOKEN" \
 ## Ready-to-paste nudge
 
 ```
-Continue the lauer-powers loop (TDD mode).
-BOARD=/Users/sherrodz/src/colossus-titan/Colossus/docs/lauer-powers-loop/board
-SHT=core/src/functest/java/net/sf/colossus/server/ScriptedHumanPlayerTest.java
-SRC=/Users/sherrodz/src/colossus-titan/Colossus
-
-STOP CHECK:
-1. If /Users/sherrodz/src/colossus-titan/Colossus/docs/lauer-powers-loop/STOP exists: call autonudge_stop(reason="sentinel"), do nothing else.
-
-PICK:
-2. kanban-md --dir $BOARD pick --claim loop-agent --move in-progress --status todo
-3. If no task picked (board drained): autonudge_stop(reason="board drained"), stop.
-   The picked task ID and title are in the output — use them for the rest of the cycle.
-
-TDD EXECUTE (test-first, <=5 tool calls):
-5. FIRST: Write a failing test in ScriptedHumanPlayerTest.java that exercises the task's behavior.
-   - Use setupBattle(power, startPhase, creatures...) pattern.
-   - Assert the expected outcome (phase transition, state change, rejection).
-   - Run: cd $SRC && ant compileFuncTests 2>&1 | tail -3
-   - If the test PASSES immediately (feature already implemented): mark task done, move on.
-6. THEN: If test fails, implement the minimum code to make it pass.
-   - Run: cd $SRC && ant functest 2>&1 | grep -E "FAILED|BUILD" to confirm green.
-7. NEVER git push. NEVER destructive ops.
-8. For UI tasks: consult docs/lauer-powers-loop/ui-designs.md.
-
-DONE:
-9. kanban-md --dir $BOARD edit <id> --release
-10. kanban-md --dir $BOARD move <id> done
-11. DM owner via send_message: "🔁 lauer-powers cycle-<n> · #<id>  Done: <1-line>  Next: <next-id>"
-
-One cycle = one task. Test ALWAYS comes first.
+[auto-nudge cycle N]
+Your north star is in north_star.md, roadmap in roadmap.md, tasks in tasks.md. Pick the single highest-leverage next step toward the goal and execute it. Update tasks.md. Post a blocker ONCE if genuinely stuck. To halt the loop, create /Users/sherrodz/src/colossus-titan/Colossus/docs/lauer-powers-loop/STOP
 ```
 
 ---

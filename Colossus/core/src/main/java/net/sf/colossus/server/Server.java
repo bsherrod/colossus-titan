@@ -2640,7 +2640,11 @@ public final class Server extends Thread implements IServer
         // Need to always call this to keep game from hanging.
         if (game.getPhase() == Phase.FIGHT)
         {
-            if (game.getBattleSS() != null)
+            if (game.isPreBattleRecruitPending())
+            {
+                game.doneWithPreBattleRecruit();
+            }
+            else if (game.getBattleSS() != null)
             {
                 game.getBattleSS().doneReinforcing();
             }
