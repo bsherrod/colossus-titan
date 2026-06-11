@@ -79,9 +79,35 @@ public final class Dice
     {
         if (scriptedRolls != null && scriptedIndex < scriptedRolls.length)
         {
-            return scriptedRolls[scriptedIndex++];
+            int result = scriptedRolls[scriptedIndex++];
+            notifyRecorder(result);
+            return result;
         }
-        return random.nextInt(size) + 1;
+        int result = random.nextInt(size) + 1;
+        notifyRecorder(result);
+        return result;
+    }
+
+    /** Notify GameRecorder of a dice roll for replay determinism. */
+    private static void notifyRecorder(int roll)
+    {
+        if (diceListener != null)
+        {
+            diceListener.onDiceRoll(roll);
+        }
+    }
+
+    /** Listener interface for capturing dice rolls. */
+    public interface DiceRollListener
+    {
+        void onDiceRoll(int roll);
+    }
+
+    private static DiceRollListener diceListener = null;
+
+    public static void setDiceListener(DiceRollListener listener)
+    {
+        diceListener = listener;
     }
 
     private static int[] basicSequence = { 4, 3, 1, 6, 5, 2 };

@@ -33,6 +33,11 @@ public class AdministratorRecruitTest extends TestCase
         super.setUp();
         variant = VariantSupport.loadVariantByName("Default", true);
         game = GameServerSide.makeNewGameServerSide(variant);
+        // doRecruit requires history; init it for test context
+        java.lang.reflect.Field histField =
+            GameServerSide.class.getDeclaredField("history");
+        histField.setAccessible(true);
+        histField.set(game, new History());
         player = game.createAndAddPlayer("Admin", "SimpleAI");
         player.getPowers().addPower(LauerPower.ADMINISTRATOR);
     }
@@ -328,6 +333,141 @@ public class AdministratorRecruitTest extends TestCase
         assertEquals("Administrator must adjust numRecruiters from 2 to 1 "
             + "(otherwise client adds phantom Gargoyle via PredictSplitNode)",
             1, numRecruiters);
+    }
+
+    /**
+     * BUG: On turn 1, legion Ogre+Ogre+Gargoyle moves to Hills and recruits
+     * Minotaur. Expected: height goes from 3 to 4. Actual: height goes to 5
+     * (an extra Ogre appears). This test calls doRecruit exactly once and
+     * asserts height increases by exactly 1.
+     */
+    public void testDoRecruitAddsExactlyOneCreatureInHills()
+    {
+        MasterHex hillsHex = findHexByTerrain("Hills");
+        assertNotNull("Must find a Hills hex", hillsHex);
+
+        CreatureType ogre = variant.getCreatureByName("Ogre");
+        CreatureType gargoyle = variant.getCreatureByName("Gargoyle");
+        CreatureType minotaur = variant.getCreatureByName("Minotaur");
+        assertNotNull(ogre);
+        assertNotNull(gargoyle);
+        assertNotNull(minotaur);
+
+        // Legion: Ogre, Ogre, Gargoyle on Hills (after split on turn 1)
+        LegionServerSide legion = new LegionServerSide("Rd01", null,
+            hillsHex, hillsHex, player, game, ogre, ogre, gargoyle);
+        player.addLegion(legion);
+
+        int heightBefore = legion.getHeight();
+        assertEquals("Start at height 3", 3, heightBefore);
+
+        // Verify Minotaur is recruitable (2 Ogres in Hills, Admin -1 = 1 needed)
+        List<CreatureType> recruits = game.findEligibleRecruits(legion, hillsHex);
+        assertTrue("Minotaur should be recruitable with Administrator. Got: "
+            + recruits, recruits.contains(minotaur));
+
+        // Recruit Minotaur with Ogre as recruiter (the actual doRecruit path)
+        game.doRecruit(legion, minotaur, ogre);
+
+        // THE BUG: height should be exactly 4, not 5
+        assertEquals("After ONE doRecruit call, height must increase by exactly 1. "
+            + "Legion contents: " + legion.getCreatures(),
+            heightBefore + 1, legion.getHeight());
+
+        // Verify exact contents: 2 Ogres + 1 Gargoyle + 1 Minotaur
+        assertEquals("Should have exactly 2 Ogres", 2, legion.numCreature(ogre));
+        assertEquals("Should have exactly 1 Gargoyle", 1, legion.numCreature(gargoyle));
+        assertEquals("Should have exactly 1 Minotaur", 1, legion.numCreature(minotaur));
+    }
+
+    /**
+     * BUG REPRODUCER: Server.didRecruit() computes numRecruiters directly
+     * from TerrainRecruitLoader WITHOUT the Administrator -1 adjustment.
+     * For 2 Ogres recruiting Minotaur in Hills (normally needs 3 Ogres),
+     * it sends numRecruiters=3 to clients. The client then "reveals" 3 Ogres
+     * in PredictSplitNode.revealCreatures(), but the legion only has 2,
+     * so it adds a phantom Ogre.
+     *
+     * This test verifies that the numRecruiters value computed in
+     * Server.didRecruit() matches the ADJUSTED value (2, not 3).
+     * It should FAIL because Server.didRecruit() calls
+     * TerrainRecruitLoader.numberOfRecruiterNeeded() directly instead of
+     * game.computeNumRecruitersForClient().
+     */
+    public void testServerDidRecruitSendsAdjustedNumRecruiters()
+    {
+        MasterHex hillsHex = findHexByTerrain("Hills");
+        assertNotNull(hillsHex);
+
+        CreatureType ogre = variant.getCreatureByName("Ogre");
+        CreatureType minotaur = variant.getCreatureByName("Minotaur");
+
+        // Legion: 2 Ogres + Gargoyle on Hills
+        CreatureType gargoyle = variant.getCreatureByName("Gargoyle");
+        LegionServerSide legion = new LegionServerSide("Rd01", null,
+            hillsHex, hillsHex, player, game, ogre, ogre, gargoyle);
+        player.addLegion(legion);
+
+        // This is what Server.didRecruit() CURRENTLY computes (the bug):
+        int numRecruitersRaw = net.sf.colossus.xmlparser.TerrainRecruitLoader
+            .numberOfRecruiterNeeded(ogre, minotaur,
+                hillsHex.getTerrain(), hillsHex);
+
+        // This is what it SHOULD compute (using the adjusted method):
+        int numRecruitersAdjusted = game.computeNumRecruitersForClient(
+            legion, ogre, minotaur);
+
+        // Verify: adjusted is raw - 1 (Administrator -1 reduction)
+        assertEquals(
+            "computeNumRecruitersForClient must return raw-1 for Administrator. "
+                + "Raw=" + numRecruitersRaw + " Adjusted=" + numRecruitersAdjusted
+                + ". This prevents PredictSplitNode phantom creatures.",
+            numRecruitersRaw - 1, numRecruitersAdjusted);
+    }
+
+    /**
+     * BUG: Administrator attacker should recruit before battle.
+     * When attacker with Administrator moves onto a hex with an enemy,
+     * administratorPreBattleRecruit() should auto-recruit the best
+     * available creature BEFORE the battle begins.
+     *
+     * Setup: Attacker legion [Ogre, Ogre, Gargoyle] on Brush hex
+     * with Administrator. Pre-battle should recruit Cyclops (1 Gargoyle
+     * needed with Admin -1).
+     */
+    public void testAttackerPreBattleRecruitAddsCreature()
+    {
+        MasterHex brushHex = findHexByTerrain("Brush");
+        assertNotNull(brushHex);
+
+        CreatureType ogre = variant.getCreatureByName("Ogre");
+        CreatureType gargoyle = variant.getCreatureByName("Gargoyle");
+        CreatureType cyclops = variant.getCreatureByName("Cyclops");
+
+        // Attacker legion on Brush hex with Administrator
+        LegionServerSide legion = new LegionServerSide("Rd01", null,
+            brushHex, brushHex, player, game, ogre, ogre, gargoyle);
+        player.addLegion(legion);
+
+        int heightBefore = legion.getHeight();
+        assertEquals("Start at height 3", 3, heightBefore);
+
+        // Verify Cyclops is recruitable (1 Gargoyle with Admin -1)
+        java.util.List<CreatureType> recruits = game.findEligibleRecruits(
+            legion, brushHex);
+        assertTrue("Cyclops should be recruitable on Brush with Admin. Got: "
+            + recruits, recruits.contains(cyclops));
+
+        // Call the pre-battle recruit (same as engage2 would call)
+        game.administratorPreBattleRecruit(legion, brushHex);
+
+        // Assert: creature was added
+        assertEquals("Pre-battle recruit should add exactly 1 creature",
+            heightBefore + 1, legion.getHeight());
+
+        // The best recruit on Brush with Gargoyle+Admin is Cyclops
+        assertTrue("Should have recruited Cyclops",
+            legion.numCreature(cyclops) == 1);
     }
 
     private MasterHex findHexByTerrain(String terrainName)

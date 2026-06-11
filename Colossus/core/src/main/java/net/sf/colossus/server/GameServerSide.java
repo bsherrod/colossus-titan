@@ -529,8 +529,8 @@ public class GameServerSide extends Game
 
     private void cleanupWhenGameOver()
     {
-        GameRecorder.stop();
         server.waitUntilGameFinishes();
+        GameRecorder.stop();
         if (diceStatCollector != null)
         {
             for (Player p : getPlayers())
@@ -3483,7 +3483,7 @@ public class GameServerSide extends Game
      * Administrator power: recruit before battle.
      * Auto-recruits the best available creature if the legion has room.
      */
-    private void administratorPreBattleRecruit(LegionServerSide legion,
+    void administratorPreBattleRecruit(LegionServerSide legion,
         MasterHex hex)
     {
         if (legion == null || !legion.getPlayer().hasPower(

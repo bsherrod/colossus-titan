@@ -5,10 +5,13 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import net.sf.colossus.game.Dice;
 
 /**
  * Records all client→server commands to a JSON file for replay testing.
@@ -35,6 +38,7 @@ public class GameRecorder
     private int seq;
     private boolean headerWritten;
     private final String filePath;
+    private final List<Integer> diceBuffer = new ArrayList<Integer>();
 
     public static GameRecorder instance()
     {
@@ -74,6 +78,14 @@ public class GameRecorder
         {
             writer = new BufferedWriter(new FileWriter(filePath));
             writeHeader(game);
+            Dice.setDiceListener(new Dice.DiceRollListener()
+            {
+                @Override
+                public void onDiceRoll(int roll)
+                {
+                    diceBuffer.add(roll);
+                }
+            });
             LOGGER.info("GameRecorder started: " + filePath);
         }
         catch (IOException e)
@@ -134,7 +146,14 @@ public class GameRecorder
                 if (i > 0) writer.write(",");
                 writer.write("\"" + escape(args.get(i)) + "\"");
             }
+            writer.write("],\"dice\":[");
+            for (int i = 0; i < diceBuffer.size(); i++)
+            {
+                if (i > 0) writer.write(",");
+                writer.write(String.valueOf(diceBuffer.get(i)));
+            }
             writer.write("]}");
+            diceBuffer.clear();
             writer.flush();
         }
         catch (IOException e)
@@ -151,6 +170,7 @@ public class GameRecorder
             {
                 writer.write("\n]}");
                 writer.close();
+                Dice.setDiceListener(null);
                 LOGGER.info("GameRecorder closed: " + filePath
                     + " (" + seq + " events)");
             }

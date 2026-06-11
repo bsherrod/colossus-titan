@@ -49,7 +49,6 @@ import net.sf.colossus.util.InstanceTracker;
 import net.sf.colossus.variant.BattleHex;
 import net.sf.colossus.variant.CreatureType;
 import net.sf.colossus.variant.MasterHex;
-import net.sf.colossus.xmlparser.TerrainRecruitLoader;
 
 
 /**
@@ -2657,10 +2656,8 @@ public final class Server extends Thread implements IServer
     {
         allUpdatePlayerInfo("DidRecruit");
 
-        int numRecruiters = (recruiter == null ? 0 : TerrainRecruitLoader
-            .numberOfRecruiterNeeded(recruiter, event.getAddedCreatureType(),
-                event.getLegion().getCurrentHex().getTerrain(), event
-                    .getLegion().getCurrentHex()));
+        int numRecruiters = game.computeNumRecruitersForClient(
+            event.getLegion(), recruiter, event.getAddedCreatureType());
         Iterator<IClient> it = iClients.iterator();
         while (it.hasNext())
         {

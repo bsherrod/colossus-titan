@@ -1438,39 +1438,28 @@ public final class BattleServerSide extends Battle
                 }
             }
 
-            // Archmage fire spell: once per battle, deal floor(titanStr/3)
-            // damage to each enemy creature
+            // Archmage fire spell: once per battle, deal floor(creatureStr/3)
+            // damage to each enemy creature (based on EACH creature's own str)
             Player activePlayer = getBattleActivePlayer();
             if (!fireSpellUsed
                 && activePlayer.hasPower(LauerPower.ARCHMAGE))
             {
-                // Find Archmage's Titan power for the formula
-                int titanPower = 0;
+                fireSpellUsed = true;
                 for (BattleCritter c : getAllCritters())
                 {
-                    CreatureServerSide css = (CreatureServerSide)c;
-                    if (css.getPlayer() == activePlayer && css.isTitan()
-                        && !css.isDead())
+                    CreatureServerSide critter = (CreatureServerSide)c;
+                    if (critter.getPlayer() != activePlayer
+                        && !critter.isDead())
                     {
-                        titanPower = css.getPower();
-                        break;
-                    }
-                }
-                int damage = titanPower / 3;
-                if (damage > 0)
-                {
-                    fireSpellUsed = true;
-                    for (BattleCritter c : getAllCritters())
-                    {
-                        CreatureServerSide critter = (CreatureServerSide)c;
-                        if (critter.getPlayer() != activePlayer
-                            && !critter.isDead())
+                        int damage = critter.getPower() / 3;
+                        if (damage > 0)
                         {
                             critter.adjustHits(damage);
                             LOGGER.log(Level.INFO,
                                 critter.getDescription()
                                     + " takes " + damage
-                                    + " fire spell damage (Archmage)");
+                                    + " fire spell damage (Archmage, str="
+                                    + critter.getPower() + ")");
                         }
                     }
                 }

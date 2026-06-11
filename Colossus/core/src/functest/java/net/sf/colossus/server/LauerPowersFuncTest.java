@@ -35,7 +35,7 @@ public class LauerPowersFuncTest extends TestCase
     private void runGameWithPowers(String player0Powers, String player1Powers,
         String player2Powers)
     {
-        Options.setStartupTest(true);
+        Options.setStartupTest(false);
         ErrorUtils.clearErrorDuringFunctionalTest();
 
         Options startOptions = new Options(Constants.OPTIONS_START, true);
