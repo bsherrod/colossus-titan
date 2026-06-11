@@ -84,4 +84,73 @@ public class VampirePowerTest extends TestCase
         assertFalse("Attacker does NOT have VAMPIRE",
             attacker.getPlayer().hasPower(LauerPower.VAMPIRE));
     }
+
+    /**
+     * Vampire overrun condition: attacker value >= 2.5x defender value.
+     * Ogre=12pts. 4 Ogres = 48. Defender 1 Ogre = 12. 48/12 = 4.0 >= 2.5 ✓
+     */
+    public void testOverrunCondition()
+    {
+        CreatureType ogre = variant.getCreatureByName("Ogre");
+        MasterHex hex = variant.getMasterBoard().getHexByLabel("3");
+
+        // Attacker: 4 Ogres = 48 pts
+        LegionServerSide attacker = new LegionServerSide("Rd01", null,
+            hex, hex, vampirePlayer, game, ogre, ogre, ogre, ogre);
+        // Defender: 1 Ogre = 12 pts
+        LegionServerSide defender = new LegionServerSide("Bu01", null,
+            hex, hex, opponent, game, ogre);
+        vampirePlayer.addLegion(attacker);
+        opponent.addLegion(defender);
+
+        int myValue = attacker.getPointValue();
+        int enemyValue = defender.getPointValue();
+        // 48 >= 12 * 2.5 = 30 → overrun
+        assertTrue("Overrun condition: " + myValue + " >= " + enemyValue + " * 2.5",
+            myValue >= enemyValue * 2.5);
+    }
+
+    /**
+     * Vampire overrun fails when attacker is too weak.
+     * 2 Ogres = 24 vs 1 Ogre = 12. 24/12 = 2.0 < 2.5 → no overrun.
+     */
+    public void testOverrunFailsWhenTooWeak()
+    {
+        CreatureType ogre = variant.getCreatureByName("Ogre");
+        MasterHex hex = variant.getMasterBoard().getHexByLabel("3");
+
+        LegionServerSide attacker = new LegionServerSide("Rd01", null,
+            hex, hex, vampirePlayer, game, ogre, ogre);
+        LegionServerSide defender = new LegionServerSide("Bu01", null,
+            hex, hex, opponent, game, ogre);
+        vampirePlayer.addLegion(attacker);
+        opponent.addLegion(defender);
+
+        int myValue = attacker.getPointValue();
+        int enemyValue = defender.getPointValue();
+        // 24 >= 12 * 2.5 = 30 → NO overrun
+        assertFalse("No overrun: " + myValue + " < " + enemyValue + " * 2.5",
+            myValue >= enemyValue * 2.5);
+    }
+
+    /**
+     * Vampire Titan formula: (score/50 + 1) * 4.
+     * At score=0: power=4. At score=50: power=8. At score=100: power=12.
+     */
+    public void testVampireTitanPowerFormula()
+    {
+        // Score = 0: (0/50 + 1) * 4 = 4
+        assertEquals("Vampire Titan at score 0", 4,
+            vampirePlayer.getTitanPower());
+
+        // Score = 50: (50/50 + 1) * 4 = 8
+        ((PlayerServerSide)vampirePlayer).setScore(50);
+        assertEquals("Vampire Titan at score 50", 8,
+            vampirePlayer.getTitanPower());
+
+        // Score = 100: (100/50 + 1) * 4 = 12
+        ((PlayerServerSide)vampirePlayer).setScore(100);
+        assertEquals("Vampire Titan at score 100", 12,
+            vampirePlayer.getTitanPower());
+    }
 }

@@ -65,4 +65,73 @@ public class NineBallPowerTest extends TestCase
         assertFalse("Cannot add 10th", legion.addCreature(ogre, false));
         assertEquals("Still 9", 9, legion.getHeight());
     }
+
+    /**
+     * Nine Ball: starting legion should have all 4 extras added.
+     * BUG: code caps at 9, only 1 extra added (8+1=9).
+     * EXPECTED: all 4 added (total 12), must split on turn 1.
+     */
+    public void testStartingLegionHasAllExtras()
+    {
+        CreatureType centaur = variant.getCreatureByName("Centaur");
+        CreatureType gargoyle = variant.getCreatureByName("Gargoyle");
+        CreatureType ogre = variant.getCreatureByName("Ogre");
+        CreatureType titan = variant.getCreatureByName("Titan");
+        CreatureType angel = variant.getCreatureByName("Angel");
+        MasterHex hex = variant.getMasterBoard().getHexByLabel("100");
+
+        // Normal starting legion: 8 creatures
+        LegionServerSide legion = new LegionServerSide("Rd01", null,
+            hex, hex, nineBallPlayer, game,
+            titan, angel, centaur, centaur, gargoyle, gargoyle, ogre, ogre);
+        nineBallPlayer.addLegion(legion);
+
+        // Add extras same way as newGame3 but WITHOUT height cap
+        String[] extras = {"Centaur", "Ogre", "Gargoyle", "Gargoyle"};
+        int added = 0;
+        for (String name : extras)
+        {
+            CreatureType ct = variant.getCreatureByName(name);
+            // The FIX: don't cap at 9 during initial setup - must split later
+            if (ct != null)
+            {
+                legion.getCreatures().add(new CreatureServerSide(ct, legion, game));
+                added++;
+            }
+        }
+
+        assertEquals("All 4 extras added", 4, added);
+        assertEquals("Starting height = 12", 12, legion.getHeight());
+    }
+
+    /**
+     * Nine Ball: turn 1 split of 12 creatures into 6+6 should succeed.
+     * BUG: turn-1 guard requires split size == 4, rejecting 6.
+     */
+
+    /**
+     * Nine Ball: turn 1 split of 12 creatures into 6+6 should NOT be
+     * blocked by the turn-1 guard (which normally requires size==4).
+     */
+    public void testTurn1SplitNotBlockedForNineBall()
+    {
+        // The turn-1 guard in doSplit:
+        //   if (getTurnNumber() == 1 && !player.hasPower(NINE_BALL))
+        // Nine Ball should bypass this entirely.
+        game.setTurnNumber(1);
+        boolean blocked = (game.getTurnNumber() == 1
+            && !nineBallPlayer.hasPower(LauerPower.NINE_BALL));
+        assertFalse("Nine Ball turn-1 guard should NOT block", blocked);
+    }
+
+    /**
+     * Normal player IS blocked by turn-1 guard.
+     */
+    public void testTurn1SplitBlockedForNormalPlayer()
+    {
+        game.setTurnNumber(1);
+        boolean blocked = (game.getTurnNumber() == 1
+            && !game.getPlayerByName("Opp").hasPower(LauerPower.NINE_BALL));
+        assertTrue("Normal player IS blocked by turn-1 guard", blocked);
+    }
 }

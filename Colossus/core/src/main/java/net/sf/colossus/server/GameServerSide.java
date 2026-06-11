@@ -1029,19 +1029,21 @@ public class GameServerSide extends Game
             }
             if (player.hasPower(LauerPower.NINE_BALL))
             {
-                // Start with extra centaur, ogre, and 2 gargoyles
+                // Start with extra centaur, ogre, and 2 gargoyles.
+                // This puts the legion over max height — player MUST split
+                // on turn 1 to get under the limit.
                 LegionServerSide legion =
                     (LegionServerSide)player.getLegions().get(0);
                 String[] extras = {"Centaur", "Ogre", "Gargoyle", "Gargoyle"};
                 for (String name : extras)
                 {
                     CreatureType ct = getVariant().getCreatureByName(name);
-                    if (ct != null && legion.getHeight() < 9)
+                    if (ct != null)
                     {
-                        if (legion.addCreature(ct, false))
-                        {
-                            getCaretaker().takeOne(ct);
-                        }
+                        // Bypass addCreature height guard for initial setup
+                        legion.getCreatures().add(
+                            new CreatureServerSide(ct, legion, this));
+                        getCaretaker().takeOne(ct);
                     }
                 }
             }
@@ -3104,7 +3106,7 @@ public class GameServerSide extends Game
             }
         }
 
-        if (getTurnNumber() == 1)
+        if (getTurnNumber() == 1 && !player.hasPower(LauerPower.NINE_BALL))
         {
             // Only allow a single split on turn 1.
             if (player.getLegions().size() > 1)
