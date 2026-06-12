@@ -1279,7 +1279,14 @@ public class GameServerSide extends Game
             player.setMulliganRolls(roll, alt); // reuse field for both dice
             if (alt > roll)
             {
+                LOGGER.info("UDC movement: rolled " + roll + ", flipped to "
+                    + alt + " (7-" + roll + ")");
                 roll = alt;
+            }
+            else
+            {
+                LOGGER.info("UDC movement: rolled " + roll + ", kept (flip="
+                    + alt + " not better)");
             }
         }
         // Mulligan: roll 2 dice, each group may use either.
@@ -1310,6 +1317,8 @@ public class GameServerSide extends Game
                 {
                     roll = secondRoll;
                 }
+                LOGGER.info("Mulligan dual dice: " + player.getMulliganRoll1()
+                    + " and " + player.getMulliganRoll2() + " → using " + roll);
             }
         }
         // Ninja: may reroll movement die until a different number is rolled.
@@ -1323,6 +1332,7 @@ public class GameServerSide extends Game
                 reroll = ((PlayerServerSide)player).makeMovementRoll();
             }
             roll = reroll;
+            LOGGER.info("Ninja reroll: " + originalNinjaRoll + " → " + roll);
             // Must update player's movementRoll too, since server validation
             // reads from PlayerServerSide.getMovementRoll(), not Game.movementRoll
             ((PlayerServerSide)player).setMovementRoll(roll);
@@ -2634,6 +2644,11 @@ public class GameServerSide extends Game
 
     private boolean anonymousRecruitLegal(Legion legion, CreatureType recruit)
     {
+        // Administrator: -1 recruiter can reduce requirement to 0 (null recruiter)
+        if (legion.getPlayer().hasPower(LauerPower.ADMINISTRATOR))
+        {
+            return true;
+        }
         return TerrainRecruitLoader.anonymousRecruitLegal(recruit, legion
             .getCurrentHex().getTerrain(), legion.getCurrentHex());
     }

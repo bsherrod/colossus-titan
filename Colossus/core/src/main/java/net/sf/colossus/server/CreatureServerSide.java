@@ -609,6 +609,7 @@ public class CreatureServerSide extends Creature implements BattleCritter
             if (attackerPlayer.hasPower(LauerPower.YAHTZEE)
                 || attackerPlayer.hasPower(LauerPower.PROPHETESS))
             {
+                int firstDamage = damage;
                 int altDamage = game.getBattleStrike().rollDice(this, target,
                     dice, strikeNumber, new java.util.ArrayList<String>(),
                     true);
@@ -616,6 +617,11 @@ public class CreatureServerSide extends Creature implements BattleCritter
                 {
                     damage = altDamage;
                 }
+                String power = attackerPlayer.hasPower(LauerPower.YAHTZEE)
+                    ? "Yahtzee" : "Prophetess";
+                LOGGER.info(power + " reroll: " + firstDamage
+                    + " vs " + altDamage + " → took " + damage
+                    + " (" + dice + "d vs " + strikeNumber + ")");
             }
             // Mulligan: may instead do ceil(average hits)
             if (attackerPlayer.hasPower(LauerPower.MULLIGAN))

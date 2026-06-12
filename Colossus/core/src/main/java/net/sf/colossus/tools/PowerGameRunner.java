@@ -32,7 +32,7 @@ public class PowerGameRunner
 
         Dice.captureSeed();
         Options.setStartupTest(false);
-        Constants.END_AFTER_FIRST_BATTLE = true;
+        Constants.END_AFTER_FIRST_BATTLE = false;
         ErrorUtils.clearErrorDuringFunctionalTest();
 
         Options startOptions = new Options(Constants.OPTIONS_START, true);
