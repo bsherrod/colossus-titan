@@ -419,7 +419,47 @@ public class SimpleAI extends AbstractAI
         //
         if (legion.getHeight() == 8)
         {
-            return doInitialGameSplit(legion.getCurrentHex());
+            // doInitialGameSplit only works on tower hexes
+            MasterHex hex = legion.getCurrentHex();
+            if (hex != null && TerrainRecruitLoader.getStartingCreatures(hex) != null)
+            {
+                return doInitialGameSplit(hex);
+            }
+            // Non-tower height-8: fall through to weakest-two split
+        }
+
+        // Nine Ball: 12-creature start, must split 6+6
+        if (legion.getHeight() > 8
+            && client.getOwningPlayer().hasPower(
+                net.sf.colossus.game.LauerPower.NINE_BALL))
+        {
+            List<CreatureType> splitoffs = new LinkedList<CreatureType>();
+            List<CreatureType> all = new ArrayList<CreatureType>();
+            for (net.sf.colossus.game.Creature c : legion.getCreatures())
+            {
+                all.add(c.getType());
+            }
+            // Split off half (keep lords in parent if possible)
+            int splitSize = all.size() / 2;
+            // Put non-lords in split first
+            for (CreatureType ct : new ArrayList<CreatureType>(all))
+            {
+                if (splitoffs.size() >= splitSize) break;
+                if (!ct.isLord())
+                {
+                    splitoffs.add(ct);
+                }
+            }
+            // Fill with lords if needed
+            for (CreatureType ct : all)
+            {
+                if (splitoffs.size() >= splitSize) break;
+                if (ct.isLord() && !splitoffs.contains(ct))
+                {
+                    splitoffs.add(ct);
+                }
+            }
+            return splitoffs;
         }
 
         return findWeakestTwoCritters((LegionClientSide)legion);
@@ -509,7 +549,34 @@ public class SimpleAI extends AbstractAI
      *  split out. */
     List<CreatureType> doInitialGameSplit(MasterHex hex)
     {
-        List<CreatureType> hintSuggestedSplit = getInitialSplitHint(hex);
+        // Demon: has 2 Angels, no Titan. On tower (turn 1), split 1 Angel + 3 creatures.
+        if (client.getOwningPlayer().hasPower(
+            net.sf.colossus.game.LauerPower.DEMON))
+        {
+            CreatureType[] startCre = TerrainRecruitLoader
+                .getStartingCreatures(hex);
+            if (startCre != null)
+            {
+                List<CreatureType> splitoffs = new LinkedList<CreatureType>();
+                splitoffs.add(variant.getCreatureByName(
+                    variant.getPrimaryAcquirable())); // Angel
+                splitoffs.add(startCre[0]);
+                splitoffs.add(startCre[1]);
+                splitoffs.add(startCre[2]);
+                return splitoffs;
+            }
+            // Non-tower: fall through to normal split logic
+        }
+
+        List<CreatureType> hintSuggestedSplit = null;
+        try
+        {
+            hintSuggestedSplit = getInitialSplitHint(hex);
+        }
+        catch (RuntimeException e)
+        {
+            // Non-tower hex — no hint available, fall through to CMU/MIT split
+        }
 
         /* Log.debug("HINT: suggest splitting " + hintSuggestedSplit +
          " in " + label); */
@@ -1274,10 +1341,12 @@ public class SimpleAI extends AbstractAI
                 }
                 else
                 {
-                    LOGGER.severe("Bogus legion height "
-                        + (legion).getHeight() + " in legion "
-                        + legion.getMarkerId() + "; content: "
-                        + Glob.glob(",", legion.getCreatures()));
+                    // Height 7+: legion is at max or predicted over-height
+                    // (can happen with Amoeba/NineBall or prediction errors).
+                    // No recruit value — already full.
+                    LOGGER.finest("Legion " + legion.getMarkerId()
+                        + " at height " + legion.getHeight()
+                        + " (full or over-predicted), no recruit value");
                 }
 
                 LOGGER.finest("--- if " + legion + " moves to " + hex

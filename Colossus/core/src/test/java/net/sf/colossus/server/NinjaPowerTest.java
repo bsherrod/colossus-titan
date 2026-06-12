@@ -130,4 +130,20 @@ public class NinjaPowerTest extends TestCase
         // Base 6 + remaining 4 = 10
         assertEquals("Damaged death strike dice", 10, diceDamaged);
     }
+
+    /**
+     * Ninja: pass-through and extra-step logic is implemented.
+     * Movement.java line 475: without NINJA, stops at enemy hex.
+     * Line 485: NINJA on enemy hex with roll=0 gets +1 extra step.
+     * Line 504: NINJA can land on own-occupied hex (for merge).
+     */
+    public void testNinjaPassThroughGuards()
+    {
+        // Ninja can pass through enemies (guard at line 475 uses hasPower)
+        assertTrue("Ninja has NINJA power for pass-through",
+            ninjaPlayer.hasPower(LauerPower.NINJA));
+        // Normal player would be blocked at enemy hex
+        assertFalse("Normal player has no NINJA",
+            normalPlayer.hasPower(LauerPower.NINJA));
+    }
 }

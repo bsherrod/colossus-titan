@@ -94,6 +94,9 @@ public final class Client implements IClient, IOracle, IVariant,
     private static final Logger LOGGER = Logger.getLogger(Client.class
         .getName());
 
+    /** Count consecutive doMove NAKs to prevent infinite retry loops. */
+    private int moveNakCount = 0;
+
     /**
      *  This "server" is the access to the connector object which actually
      *  acts for us as server.
@@ -2399,6 +2402,15 @@ public final class Client implements IClient, IOracle, IVariant,
         }
         else if (reason.equals(Constants.doMove))
         {
+            moveNakCount++;
+            if (moveNakCount > 3 && autoplay.autoMasterMove())
+            {
+                LOGGER.warning("Move NAK'd " + moveNakCount
+                    + " times, giving up and calling doneWithMoves");
+                moveNakCount = 0;
+                doneWithMoves();
+                return;
+            }
             gui.actOnMoveNak();
             showMessageDialog(errmsg);
             kickMoves();
@@ -3751,6 +3763,7 @@ public final class Client implements IClient, IOracle, IVariant,
         MasterHex currentHex, EntrySide entrySide, boolean teleport,
         CreatureType teleportingLord, boolean splitLegionHasForcedMove)
     {
+        moveNakCount = 0;
         if (AiDevPrinting.movingTitanLegion
             && owningPlayer.getName().equals("clemens")
             && legion.getPlayer().equals(owningPlayer) && legion.hasTitan())

@@ -134,4 +134,38 @@ public class NineBallPowerTest extends TestCase
             && !game.getPlayerByName("Opp").hasPower(LauerPower.NINE_BALL));
         assertTrue("Normal player IS blocked by turn-1 guard", blocked);
     }
+
+    /**
+     * Nine Ball: nineball demilord has power=(9-legion_size), skill=4, 0 pts.
+     * With a 7-creature legion + nineball = 8 total → nineball power = 9-8 = 1.
+     * With a 5-creature legion + nineball = 6 total → nineball power = 9-6 = 3.
+     */
+    public void testNineballDemilordStats()
+    {
+        CreatureType ogre = variant.getCreatureByName("Ogre");
+        net.sf.colossus.variant.MasterHex hex =
+            variant.getMasterBoard().getHexByLabel("100");
+
+        // Legion of 5 creatures
+        LegionServerSide legion = new LegionServerSide("Rd01", null,
+            hex, hex, nineBallPlayer, game,
+            ogre, ogre, ogre, ogre, ogre);
+        nineBallPlayer.addLegion(legion);
+
+        // Create a nineball creature in this legion
+        CreatureServerSide nineball = new CreatureServerSide(
+            ogre, legion, game);
+        nineball.setNineball(true);
+        legion.getCreatures().add(nineball);
+        // Now legion has 6 total (5 + nineball)
+
+        assertEquals("Nineball skill = 4", 4, nineball.getSkill());
+        assertEquals("Nineball power = 9 - 6 = 3", 3, nineball.getPower());
+        assertEquals("Nineball worth 0 points", 0, nineball.getPointValue());
+
+        // Add more creatures → power decreases
+        legion.getCreatures().add(new CreatureServerSide(ogre, legion, game));
+        // Now 7 total → power = 9 - 7 = 2
+        assertEquals("Nineball power = 9 - 7 = 2", 2, nineball.getPower());
+    }
 }

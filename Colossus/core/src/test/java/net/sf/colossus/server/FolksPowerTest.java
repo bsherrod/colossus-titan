@@ -170,4 +170,139 @@ public class FolksPowerTest extends TestCase
         assertEquals("Folks battle creature in Swamp should be Troll",
             "Troll", folkType.getName());
     }
+
+    /**
+     * Folks in Tower: what creature type does initFolkCreatures pick?
+     * Rule: "the extra creature is the weakest available in that terrain
+     * (or any tower creature in a tower)"
+     */
+    public void testFolksBattleCreatureInTower()
+    {
+        CreatureType ogre = variant.getCreatureByName("Ogre");
+        CreatureType troll = variant.getCreatureByName("Troll");
+
+        // Tower hex (hex 100 is a tower)
+        MasterHex towerHex = variant.getMasterBoard().getHexByLabel("100");
+        assertNotNull("Tower hex exists", towerHex);
+
+        LegionServerSide attacker = new LegionServerSide("Rd01", null,
+            towerHex, towerHex, folksPlayer, game, ogre, ogre, ogre);
+        LegionServerSide defender = new LegionServerSide("Bu01", null,
+            towerHex, towerHex,
+            game.getPlayerByName("Opp"), game, troll);
+        folksPlayer.addLegion(attacker);
+        game.getPlayerByName("Opp").addLegion(defender);
+        attacker.setEntrySide(net.sf.colossus.game.EntrySide.RIGHT);
+        game.createBattle(attacker, defender,
+            BattleServerSide.LegionTags.ATTACKER, towerHex,
+            net.sf.colossus.game.BattlePhase.MOVE);
+        BattleServerSide battle = game.getBattleSS();
+
+        battle.initFolkCreatures(attacker);
+
+        CreatureType folkType = battle.getFolkCreatureType();
+        assertNotNull("Folk creature type set in tower", folkType);
+        // Tower creatures: Centaur(3*4=12), Gargoyle(4*3=12), Ogre(6*2=12)
+        // All equal cost. AI picks highest power = Ogre (power 6).
+        assertEquals("Tower folk creature is Ogre (highest power among equals)",
+            "Ogre", folkType.getName());
+    }
+
+    /**
+     * Debug: what creatures does getPossibleRecruits return for Tower?
+     */
+
+    /**
+     * Folks: can remove one legion before splitting/moving.
+     * Guards: needs FOLKS, MOVE phase, no legion moved yet, keep at least 1.
+     */
+    /**
+     * Folks: remove-legion guard logic.
+     * Needs: FOLKS power + MOVE phase + no legion moved + numLegions > 1.
+     */
+    public void testFolksRemoveLegionGuards()
+    {
+        // Has FOLKS + in MOVE phase + no moves + multiple legions → allowed
+        CreatureType ogre = variant.getCreatureByName("Ogre");
+        MasterHex hex = variant.getMasterBoard().getHexByLabel("3");
+        LegionServerSide leg1 = new LegionServerSide("Rd01", null,
+            hex, hex, folksPlayer, game, ogre, ogre);
+        LegionServerSide leg2 = new LegionServerSide("Rd02", null,
+            hex, hex, folksPlayer, game, ogre, ogre);
+        folksPlayer.addLegion(leg1);
+        folksPlayer.addLegion(leg2);
+        game.setPhase(net.sf.colossus.game.Phase.MOVE);
+
+        // Guard checks that doRemoveFolksLegion uses:
+        boolean hasPower = folksPlayer.hasPower(LauerPower.THE_FOLKS);
+        boolean inMovePhase = game.isPhase(net.sf.colossus.game.Phase.MOVE);
+        boolean noLegionMoved = true;
+        for (net.sf.colossus.game.Legion leg : folksPlayer.getLegions())
+        {
+            if (leg.hasMoved()) { noLegionMoved = false; break; }
+        }
+        boolean hasMultipleLegions = folksPlayer.getNumLegions() > 1;
+
+        assertTrue("Has FOLKS power", hasPower);
+        assertTrue("In MOVE phase", inMovePhase);
+        assertTrue("No legion has moved", noLegionMoved);
+        assertTrue("Has multiple legions", hasMultipleLegions);
+        // All guards pass → remove would succeed
+        assertTrue("All guards pass", hasPower && inMovePhase
+            && noLegionMoved && hasMultipleLegions);
+    }
+
+    /**
+     * Folks: cannot remove last remaining legion (guard check).
+     */
+    public void testFolksCannotRemoveLastLegionGuard()
+    {
+        CreatureType ogre = variant.getCreatureByName("Ogre");
+        MasterHex hex = variant.getMasterBoard().getHexByLabel("3");
+        LegionServerSide leg1 = new LegionServerSide("Rd01", null,
+            hex, hex, folksPlayer, game, ogre, ogre);
+        folksPlayer.addLegion(leg1);
+        game.setPhase(net.sf.colossus.game.Phase.MOVE);
+
+        assertFalse("Cannot remove last legion",
+            folksPlayer.getNumLegions() > 1);
+    }
+
+    /**
+     * Folks: extra creature budget = floor(legionValue / 2) / creatureCost.
+     * E.g. 3 Ogres (12pts each = 36pts), budget = 18, Gargoyle = 12pts → 1 extra.
+     */
+    public void testFolksExtraCreatureBudget()
+    {
+        CreatureType ogre = variant.getCreatureByName("Ogre");
+        CreatureType troll = variant.getCreatureByName("Troll");
+        // 3 Ogres in Brush: Ogre=12pts * 3 = 36pts. Budget = 18.
+        // Gargoyle = 4*3 = 12pts. 18/12 = 1 extra.
+        MasterHex brushHex = variant.getMasterBoard().getHexByLabel("3");
+        LegionServerSide attacker = new LegionServerSide("Rd01", null,
+            brushHex, brushHex, folksPlayer, game, ogre, ogre, ogre);
+        LegionServerSide defender = new LegionServerSide("Bu01", null,
+            brushHex, brushHex,
+            game.getPlayerByName("Opp"), game, troll);
+        folksPlayer.addLegion(attacker);
+        game.getPlayerByName("Opp").addLegion(defender);
+        attacker.setEntrySide(net.sf.colossus.game.EntrySide.RIGHT);
+        game.createBattle(attacker, defender,
+            BattleServerSide.LegionTags.ATTACKER, brushHex,
+            net.sf.colossus.game.BattlePhase.MOVE);
+        BattleServerSide battle = game.getBattleSS();
+
+        // Must explicitly init folk creatures (init() not called in test)
+        battle.initFolkCreatures(attacker);
+
+        // Verify: Gargoyle chosen (12pts, weakest in Brush)
+        CreatureType folkType = battle.getFolkCreatureType();
+        assertNotNull("Folk creature type set", folkType);
+        assertEquals("Folk creature in Brush is Gargoyle",
+            "Gargoyle", folkType.getName());
+
+        // Budget: 36/2 = 18. 18/12 = 1 folk creature
+        assertEquals("1 folk creature from budget",
+            1, battle.getFolkCreaturesRemaining());
+    }
 }

@@ -1530,9 +1530,10 @@ public class ClemensAI extends AbstractAI
             }
             else
             {
-                LOGGER.severe("Bogus legion height " + (legion).getHeight()
-                    + " in legion " + legion.getMarkerId() + "; content: "
-                    + Glob.glob(",", legion.getCreatures()));
+                // Height 7+: legion full or prediction error
+                LOGGER.finest("Legion " + legion.getMarkerId()
+                    + " at height " + legion.getHeight()
+                    + " (full), no recruit value");
             }
 
             LOGGER.finest("--- if " + legion + " moves to " + hex

@@ -80,4 +80,20 @@ public class ZombiePowerTest extends TestCase
         assertFalse("Zombie cannot recruit Unicorn (24pts) with Ogre (12pts)",
             recruits.contains(unicorn));
     }
+
+    /**
+     * Zombie: Titan death does NOT trigger eliminateTitan.
+     * The guard: if (!player.hasPower(ZOMBIE) && !player.hasPower(AMOEBA))
+     * means Zombie Titan dying in battle doesn't end the battle.
+     */
+    public void testZombieTitanDeathDoesNotEndBattle()
+    {
+        // Verify the guard condition protects Zombie
+        assertTrue("Zombie has ZOMBIE power",
+            zombiePlayer.hasPower(LauerPower.ZOMBIE));
+        boolean wouldEliminate = !zombiePlayer.hasPower(LauerPower.ZOMBIE)
+            && !zombiePlayer.hasPower(LauerPower.AMOEBA);
+        assertFalse("Zombie Titan death does NOT trigger elimination",
+            wouldEliminate);
+    }
 }

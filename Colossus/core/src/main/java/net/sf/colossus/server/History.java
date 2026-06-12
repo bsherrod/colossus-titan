@@ -793,4 +793,106 @@ public class History
         }
     }
 
+    // === Battle Events (Phase 3) ===
+
+    void engageEvent(Legion attacker, Legion defender, MasterHex hex)
+    {
+        if (loading)
+        {
+            return;
+        }
+        Element event = new Element("Engage");
+        event.setAttribute("attackerId", attacker.getMarkerId());
+        event.setAttribute("defenderId", defender.getMarkerId());
+        event.setAttribute("hex", hex.getLabel());
+        recentEvents.add(event);
+    }
+
+    void fleeEvent(Legion legion)
+    {
+        if (loading)
+        {
+            return;
+        }
+        Element event = new Element("Flee");
+        event.setAttribute("markerId", legion.getMarkerId());
+        recentEvents.add(event);
+    }
+
+    void doNotFleeEvent(Legion legion)
+    {
+        if (loading)
+        {
+            return;
+        }
+        Element event = new Element("DoNotFlee");
+        event.setAttribute("markerId", legion.getMarkerId());
+        recentEvents.add(event);
+    }
+
+    void concedeEvent(Legion legion)
+    {
+        if (loading)
+        {
+            return;
+        }
+        Element event = new Element("Concede");
+        event.setAttribute("markerId", legion.getMarkerId());
+        recentEvents.add(event);
+    }
+
+    void battleMoveEvent(String creatureTag, String hexLabel)
+    {
+        if (loading)
+        {
+            return;
+        }
+        Element event = new Element("BattleMove");
+        event.setAttribute("creatureTag", creatureTag);
+        event.setAttribute("hex", hexLabel);
+        recentEvents.add(event);
+    }
+
+    void doneWithBattleMovesEvent()
+    {
+        if (loading)
+        {
+            return;
+        }
+        Element event = new Element("DoneWithBattleMoves");
+        recentEvents.add(event);
+    }
+
+    void strikeEvent(String strikerTag, String targetTag, int[] dice,
+        int hits, boolean rangestrike)
+    {
+        if (loading)
+        {
+            return;
+        }
+        Element event = new Element("Strike");
+        event.setAttribute("strikerTag", strikerTag);
+        event.setAttribute("targetTag", targetTag);
+        event.setAttribute("hits", "" + hits);
+        event.setAttribute("rangestrike", "" + rangestrike);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < dice.length; i++)
+        {
+            if (i > 0) sb.append(",");
+            sb.append(dice[i]);
+        }
+        event.setAttribute("dice", sb.toString());
+        recentEvents.add(event);
+    }
+
+    void doneWithStrikesEvent()
+    {
+        if (loading)
+        {
+            return;
+        }
+        Element event = new Element("DoneWithStrikes");
+        recentEvents.add(event);
+    }
+
 }

@@ -202,7 +202,10 @@ public final class LegionClientSide extends Legion implements IOracleLegion
         {
             getPlayer().initPredictSplits(this, creatures);
         }
-        getNode().revealCreatures(creatures);
+        if (getNode() != null)
+        {
+            getNode().revealCreatures(creatures);
+        }
     }
 
     void split(int childHeight, Legion child, int turn)

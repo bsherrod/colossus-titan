@@ -34,6 +34,7 @@ import net.sf.colossus.common.WhatNextManager;
 import net.sf.colossus.common.WhatNextManager.WhatToDoNext;
 import net.sf.colossus.game.BattlePhase;
 import net.sf.colossus.game.EntrySide;
+import net.sf.colossus.game.LauerPower;
 import net.sf.colossus.game.Legion;
 import net.sf.colossus.game.Phase;
 import net.sf.colossus.game.Player;
@@ -2396,6 +2397,16 @@ public final class Server extends Thread implements IServer
         allUpdatePlayerInfo("AllSetupSplit");
     }
 
+    /** Send setupSplit only to the specified player's client. */
+    void oneSetupSplit(Player player)
+    {
+        IClient client = getClient(player);
+        if (client != null)
+        {
+            client.setupSplit(game.getActivePlayer(), game.getTurnNumber());
+        }
+    }
+
     void allSetupMove()
     {
         for (IClient client : iClients)
@@ -3236,7 +3247,20 @@ public final class Server extends Thread implements IServer
         }
         else
         {
-            game.advancePhase(Phase.SPLIT, getPlayer());
+            // Prophetess: split happens during MOVE phase (after seeing roll).
+            // Now that split is done, kick the move phase so client starts moving.
+            // Must send setupMove first to switch client from SPLIT to MOVE phase.
+            if (game.isPhase(Phase.MOVE)
+                && game.getActivePlayer().hasPower(LauerPower.PROPHETESS))
+            {
+                LOGGER.info("Prophetess: doneWithSplits in MOVE phase, sending setupMove + kick");
+                allSetupMove();
+                kickPhase();
+            }
+            else
+            {
+                game.advancePhase(Phase.SPLIT, getPlayer());
+            }
         }
     }
 

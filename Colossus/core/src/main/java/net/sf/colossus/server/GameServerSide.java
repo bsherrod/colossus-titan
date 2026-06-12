@@ -1060,7 +1060,9 @@ public class GameServerSide extends Game
                 {
                     legion.removeCreature(titan);
                     getCaretaker().putOneBack(titan);
-                    legion.addCreature(angel, false);
+                    // Bypass addCreature height guard for initial setup
+                    legion.getCreatures().add(
+                        new CreatureServerSide(angel, legion, this));
                     getCaretaker().takeOne(angel);
                 }
             }
@@ -1087,49 +1089,37 @@ public class GameServerSide extends Game
                 CreatureType[] startCre = TerrainRecruitLoader
                     .getStartingCreatures(tower);
 
-                // Amoeba: remove Titan and Angel from starting legion,
-                // replace with tower creatures. Result: 3 legions of 4.
+                // Amoeba: starts with ONE legion of 12 tower creatures
+                // (4 of each type). Player splits twice on turn 1.
                 LegionServerSide firstLegion =
                     (LegionServerSide)player.getLegions().get(0);
+
+                // Remove Titan and Angel from starting legion
                 CreatureType titan = getVariant().getCreatureByName("Titan");
                 CreatureType angel = getVariant().getCreatureByName(
                     getVariant().getPrimaryAcquirable());
                 if (titan != null)
                 {
-                    firstLegion.removeCreature(titan);
+                    firstLegion.removeCreature(titan, false, false);
                     getCaretaker().putOneBack(titan);
                 }
                 if (angel != null)
                 {
-                    firstLegion.removeCreature(angel);
+                    firstLegion.removeCreature(angel, false, false);
                     getCaretaker().putOneBack(angel);
                 }
-                // First legion now has 6 tower creatures (2 of each).
-                // Remove 2 to get to 4: remove startCre[1] and startCre[2]
-                firstLegion.removeCreature(startCre[1]);
-                firstLegion.removeCreature(startCre[2]);
-                // First legion: 4 creatures (startCre[0]×2, startCre[1]×1... 
-                // Actually: after removing titan+angel+2 more = 4 remain)
-
-                // Create 2 extra legions of 4 each
-                for (int leg = 0; leg < 2; leg++)
+                // Now has 6 (2 of each). Add 2 more of each to get 12 (4 of each).
+                for (int i = 0; i < 2; i++)
                 {
-                    String markerId = player.getFirstMarker();
-                    if (markerId != null)
+                    for (CreatureType ct : startCre)
                     {
-                        player.selectMarkerId(markerId);
-                        LegionServerSide extraLegion =
-                            new LegionServerSide(markerId, null, tower,
-                                tower, player, this,
-                                startCre[0], startCre[1],
-                                startCre[2], startCre[0]);
-                        player.addLegion(extraLegion);
-                        for (Creature c : extraLegion.getCreatures())
-                        {
-                            getCaretaker().takeOne(c.getType());
-                        }
+                        firstLegion.getCreatures().add(
+                            new CreatureServerSide(ct, firstLegion, this));
+                        getCaretaker().takeOne(ct);
                     }
                 }
+                // Result: 1 legion of 12 creatures (4C + 4G + 4O).
+                // Player must split twice on turn 1 to get 3 legions of 4.
             }
 
             server.allRevealLegion(player.getLegions().get(0),
@@ -1333,6 +1323,9 @@ public class GameServerSide extends Game
                 reroll = ((PlayerServerSide)player).makeMovementRoll();
             }
             roll = reroll;
+            // Must update player's movementRoll too, since server validation
+            // reads from PlayerServerSide.getMovementRoll(), not Game.movementRoll
+            ((PlayerServerSide)player).setMovementRoll(roll);
         }
         // update in game.Game:
         setMovementRoll(roll);
@@ -1752,7 +1745,13 @@ public class GameServerSide extends Game
                 // Prophetess: split AFTER seeing the roll
                 if (getActivePlayer().hasPower(LauerPower.PROPHETESS))
                 {
-                    server.allSetupSplit();
+                    // Send setupSplit only to the active player (not all clients)
+                    server.oneSetupSplit(getActivePlayer());
+                    // Kick the client to do the split (phase is SPLIT on client)
+                    server.kickPhase();
+                    // Don't continue to kickPhase for MOVE — that happens
+                    // in doneWithSplits handler after split completes
+                    return;
                 }
                 // Zombie: may remove creatures from groups before moving
                 // (AI does not exercise this option)
@@ -3133,7 +3132,8 @@ public class GameServerSide extends Game
         }
 
         if (getTurnNumber() == 1 && !player.hasPower(LauerPower.NINE_BALL)
-            && !player.hasPower(LauerPower.AMOEBA))
+            && !player.hasPower(LauerPower.AMOEBA)
+            && !player.hasPower(LauerPower.DEMON))
         {
             // Only allow a single split on turn 1.
             if (player.getLegions().size() > 1)
@@ -3443,6 +3443,7 @@ public class GameServerSide extends Game
 
             createEngagement(hex, attacker, defender);
             server.allTellEngagement(hex, attacker, defender);
+            history.engageEvent(attacker, defender, hex);
 
             ((LegionServerSide)attacker).sortCritters();
             ((LegionServerSide)defender).sortCritters();
@@ -3739,6 +3740,7 @@ public class GameServerSide extends Game
 
     void flee(Legion legion)
     {
+        history.fleeEvent(legion);
         Legion attacker = getFirstEnemyLegion(legion.getCurrentHex(),
             legion.getPlayer());
 
@@ -3747,6 +3749,7 @@ public class GameServerSide extends Game
 
     void concede(Legion attacker)
     {
+        history.concedeEvent(attacker);
         if (battleInProgress)
         {
             getBattleSS().concede(attacker.getPlayer());
@@ -3762,6 +3765,7 @@ public class GameServerSide extends Game
 
     void doNotFlee(Legion legion)
     {
+        history.doNotFleeEvent(legion);
         engage2(legion.getCurrentHex());
     }
 

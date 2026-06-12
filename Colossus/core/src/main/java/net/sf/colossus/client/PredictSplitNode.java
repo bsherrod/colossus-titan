@@ -586,6 +586,10 @@ public class PredictSplitNode implements Comparable<PredictSplitNode>
     List<CreatureType> chooseCreaturesToSplitOut(
         List<List<CreatureType>> possibleSplits)
     {
+        if (possibleSplits == null || possibleSplits.isEmpty())
+        {
+            return new ArrayList<CreatureType>();
+        }
         List<CreatureType> firstElement = possibleSplits.get(0);
         boolean maximize = (2 * firstElement.size() > getHeight());
         int bestKillValue = -1;

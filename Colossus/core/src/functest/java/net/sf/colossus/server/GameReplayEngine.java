@@ -232,4 +232,91 @@ public class GameReplayEngine
         }
         return Long.parseLong(json.substring(start, end));
     }
+
+    // === Assertion Helpers (Phase 4) ===
+
+    /**
+     * Assert a legion has a specific height (creature count).
+     */
+    public void assertLegionHeight(String markerId, int expected)
+    {
+        LegionServerSide legion = getLegion(markerId);
+        if (legion == null)
+        {
+            throw new AssertionError("Legion " + markerId + " not found");
+        }
+        if (legion.getHeight() != expected)
+        {
+            throw new AssertionError("Legion " + markerId + " height: "
+                + "expected " + expected + " but was " + legion.getHeight());
+        }
+    }
+
+    /**
+     * Assert a legion contains at least N of a creature type.
+     */
+    public void assertLegionContains(String markerId, String creatureName,
+        int count)
+    {
+        LegionServerSide legion = getLegion(markerId);
+        if (legion == null)
+        {
+            throw new AssertionError("Legion " + markerId + " not found");
+        }
+        int actual = 0;
+        for (net.sf.colossus.game.Creature c : legion.getCreatures())
+        {
+            if (c.getType().getName().equals(creatureName))
+            {
+                actual++;
+            }
+        }
+        if (actual < count)
+        {
+            throw new AssertionError("Legion " + markerId + " contains "
+                + actual + " " + creatureName + ", expected at least " + count);
+        }
+    }
+
+    /**
+     * Assert the game is in a specific phase.
+     */
+    public void assertPhase(net.sf.colossus.game.Phase expected)
+    {
+        if (game == null)
+        {
+            throw new AssertionError("Game not started");
+        }
+        if (!game.isPhase(expected))
+        {
+            throw new AssertionError("Expected phase " + expected
+                + " but game is in " + game.getPhase());
+        }
+    }
+
+    /**
+     * Assert a specific number of events of a given type occurred.
+     */
+    public void assertEventCount(String method, int expected)
+    {
+        int actual = findEvents(method).size();
+        if (actual != expected)
+        {
+            throw new AssertionError("Expected " + expected + " '"
+                + method + "' events but found " + actual);
+        }
+    }
+
+    /**
+     * Assert the game had at least N turns.
+     */
+    public void assertMinTurns(int minTurns)
+    {
+        int max = getMaxTurn();
+        if (max < minTurns)
+        {
+            throw new AssertionError("Expected at least " + minTurns
+                + " turns but game only had " + max);
+        }
+    }
 }

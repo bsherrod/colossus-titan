@@ -80,6 +80,8 @@ public final class BattleServerSide extends Battle
 
     /** Package-private: for testing. */
     CreatureType getFolkCreatureType() { return folkCreatureType; }
+    /** Package-private: for testing. */
+    int getFolkCreaturesRemaining() { return folkCreaturesRemaining; }
 
     /** Lord of Trees: saplings planted during battle. Maps hex to HP. */
     private final java.util.Map<BattleHex, Integer> saplings =
@@ -176,7 +178,7 @@ public final class BattleServerSide extends Battle
                 baseType, legion, getGame());
             nineball.setNineball(true);
             legion.getCreatures().add(nineball);
-            server.allPlaceNewChit(nineball);
+            placeCritter(nineball);
             LOGGER.log(Level.INFO, "Nine Ball: spawned nineball demilord for "
                 + legion.getMarkerId() + " (str="
                 + nineball.getPower() + ")");
@@ -192,6 +194,7 @@ public final class BattleServerSide extends Battle
             int budget = legionValue / 2;
             // Find weakest creature available in this TERRAIN
             // Rule: "the extra creature is the weakest available in that terrain"
+            // In Tower: all tower creatures are equal cost — pick highest power
             MasterHex battleHex = getLocation();
             java.util.List<net.sf.colossus.variant.CreatureType> tempRecruits =
                 net.sf.colossus.xmlparser.TerrainRecruitLoader
@@ -205,6 +208,14 @@ public final class BattleServerSide extends Battle
                 {
                     cheapestValue = pv;
                     cheapest = ct;
+                }
+                else if (pv > 0 && pv == cheapestValue && cheapest != null)
+                {
+                    // Equal cost: prefer higher power (better in combat)
+                    if (ct.getPower() > cheapest.getPower())
+                    {
+                        cheapest = ct;
+                    }
                 }
             }
             if (cheapest != null && cheapestValue > 0)
