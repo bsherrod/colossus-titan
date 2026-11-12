@@ -663,7 +663,11 @@ public final class LegionServerSide extends Legion implements
         }
         for (Creature critter : getCreatures())
         {
-            ((LegionServerSide)legion).addCreature(critter.getType(), false);
+            // Bypass addCreature height check — recombine is restoring
+            // a previous state (undo split). The original legion was legal.
+            ((LegionServerSide)legion).getCreatures().add(
+                new CreatureServerSide(critter.getType(),
+                    (LegionServerSide)legion, game));
         }
 
         if (remove)
@@ -711,7 +715,11 @@ public final class LegionServerSide extends Legion implements
                 newLegion.recombine(this, true);
                 return null;
             }
-            newLegion.addCreature(creature, false);
+            // Bypass addCreature height check — split is just moving
+            // creatures between legions, not creating new ones.
+            // The doSplit() validation already ensures both halves are legal.
+            newLegion.getCreatures().add(
+                new CreatureServerSide(creature, newLegion, game));
         }
 
         player.addLegion(newLegion);

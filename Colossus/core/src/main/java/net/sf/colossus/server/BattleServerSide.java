@@ -185,6 +185,21 @@ public final class BattleServerSide extends Battle
         }
     }
 
+    private void spawnAmoebaMarker(LegionServerSide legion)
+    {
+        if (legion.getPlayer().hasPower(LauerPower.AMOEBA))
+        {
+            CreatureType titanType = getGame().getVariant()
+                .getCreatureByName("Titan");
+            CreatureServerSide marker = new CreatureServerSide(
+                titanType, legion, getGame());
+            legion.getCreatures().add(marker);
+            placeCritter(marker);
+            LOGGER.log(Level.INFO, "Amoeba: spawned Titan marker for "
+                + legion.getMarkerId());
+        }
+    }
+
     void initFolkCreatures(LegionServerSide legion)
     {
         if (legion.getPlayer().hasPower(LauerPower.THE_FOLKS))
@@ -240,6 +255,10 @@ public final class BattleServerSide extends Battle
         // Nine Ball: spawn nineball demilord for each Nine Ball player
         spawnNineball(getAttackingLegion());
         spawnNineball(getDefendingLegion());
+
+        // Amoeba: spawn Titan marker creature for each Amoeba legion
+        spawnAmoebaMarker(getAttackingLegion());
+        spawnAmoebaMarker(getDefendingLegion());
 
         // The Folks: calculate folk creature budget for battle
         initFolkCreatures(getAttackingLegion());

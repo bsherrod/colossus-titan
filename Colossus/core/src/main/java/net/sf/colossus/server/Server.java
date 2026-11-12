@@ -3245,6 +3245,13 @@ public final class Server extends Thread implements IServer
             getClient(getPlayer()).nak(Constants.doneWithSplits,
                 "Must split on first turn");
         }
+        else if (game.getTurnNumber() == 1
+            && game.getActivePlayer().hasPower(LauerPower.AMOEBA)
+            && game.getActivePlayer().getLegions().size() < 3)
+        {
+            getClient(getPlayer()).nak(Constants.doneWithSplits,
+                "Amoeba must split twice on first turn");
+        }
         else
         {
             // Prophetess: split happens during MOVE phase (after seeing roll).

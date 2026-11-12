@@ -41,8 +41,10 @@ earn angels.
 have any Titan, Angel, or Archangel creatures.  Amoeba cannot recruit
 Angels/Archangels and has no angel summoning.  Instead, every legion
 effectively has a Titan via the legion marker: in battle, an extra
-creature representing the legion marker is added with X-4 stats (where
-X is Titan strength, same as a normal Titan) but is worth 0 points.  Amoeba does not
+creature representing the legion marker is added using the Titan chit
+(the physical board game only has one Titan marker per color, but the
+software has no such constraint).  The marker creature has Titan power
+(6) and skill (4) but is worth 0 points.  Amoeba does not
 lose until ALL legions are eliminated (losing a single legion, even one
 containing the marker creature, does not end the game).  Amoeba starts
 with 4 of each tower creature to make 3 legions, each having 4
@@ -141,6 +143,13 @@ if either your demon is reduced to strength 0 (when it is, the battle is
 ended as if your Titan were killed), or if you have no remaining
 legions.  Any group with an angel may teleport as if it had a
 Titan.
+
+[Clarification/addition for Colossus implementation: Demon starts with 2
+Angels and no Titan.  The two Angels are represented using the Titan chit
+in the digital version (the physical board game only has one Titan marker
+per color, but the software has no such constraint).  Angels are lords
+and enable tower teleport.  The Demon itself is not a creature on the
+masterboard — it manifests only in battle via the possession mechanic.]
 
 <br>
 <dt>The Folks

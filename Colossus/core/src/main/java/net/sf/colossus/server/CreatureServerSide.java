@@ -613,15 +613,21 @@ public class CreatureServerSide extends Creature implements BattleCritter
                 int altDamage = game.getBattleStrike().rollDice(this, target,
                     dice, strikeNumber, new java.util.ArrayList<String>(),
                     true);
+                String power = attackerPlayer.hasPower(LauerPower.YAHTZEE)
+                    ? "Yahtzee" : "Prophetess";
                 if (altDamage > damage)
                 {
                     damage = altDamage;
+                    LOGGER.info(power + " reroll USED: " + firstDamage
+                        + " → " + altDamage + " hits"
+                        + " (" + dice + "d vs " + strikeNumber + ")");
                 }
-                String power = attackerPlayer.hasPower(LauerPower.YAHTZEE)
-                    ? "Yahtzee" : "Prophetess";
-                LOGGER.info(power + " reroll: " + firstDamage
-                    + " vs " + altDamage + " → took " + damage
-                    + " (" + dice + "d vs " + strikeNumber + ")");
+                else
+                {
+                    LOGGER.info(power + " reroll no help: " + firstDamage
+                        + " vs " + altDamage + ", kept " + damage
+                        + " (" + dice + "d vs " + strikeNumber + ")");
+                }
             }
             // Mulligan: may instead do ceil(average hits)
             if (attackerPlayer.hasPower(LauerPower.MULLIGAN))
@@ -630,17 +636,22 @@ public class CreatureServerSide extends Creature implements BattleCritter
                 int avgDamage = (dice * (7 - strikeNumber) + 5) / 6;
                 if (avgDamage > damage)
                 {
-                    LOGGER.info("Mulligan replaces " + damage + " hits with "
-                        + avgDamage + " (avg of " + dice + "d6 vs "
+                    LOGGER.info("Mulligan USED: " + damage + " → "
+                        + avgDamage + " hits (avg of " + dice + "d6 vs "
                         + strikeNumber + ")");
                     damage = avgDamage;
+                }
+                else
+                {
+                    LOGGER.info("Mulligan no help: rolled " + damage
+                        + " ≥ avg " + avgDamage
+                        + " (" + dice + "d6 vs " + strikeNumber + ")");
                 }
             }
             // UDC: may use 7-each die result (AI: take max of normal vs flipped)
             if (attackerPlayer.hasPower(LauerPower.UPSIDE_DOWN_CAKE))
             {
                 // Flipped hits: each die showing X becomes 7-X
-                // Count flipped hits >= strikeNumber
                 int flippedDamage = 0;
                 for (String roll : rolls)
                 {
@@ -653,9 +664,15 @@ public class CreatureServerSide extends Creature implements BattleCritter
                 }
                 if (flippedDamage > damage)
                 {
-                    LOGGER.info("UDC flipped dice: " + damage
-                        + " -> " + flippedDamage);
+                    LOGGER.info("UDC flipped USED: " + damage + " → "
+                        + flippedDamage + " hits (rolls: " + rolls + ")");
                     damage = flippedDamage;
+                }
+                else
+                {
+                    LOGGER.info("UDC flipped no help: normal=" + damage
+                        + " flipped=" + flippedDamage
+                        + " (rolls: " + rolls + ")");
                 }
             }
         }

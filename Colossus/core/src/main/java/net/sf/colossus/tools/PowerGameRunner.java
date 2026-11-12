@@ -30,6 +30,9 @@ public class PowerGameRunner
         String power = args[0];
         System.out.println("=== PowerGameRunner: " + power + " ===");
 
+        // Enable 100-turn stalemate detection (exits if no recruit in 100 turns)
+        System.setProperty("net.sf.colossus.stressTestRounds", "1");
+
         Dice.captureSeed();
         Options.setStartupTest(false);
         Constants.END_AFTER_FIRST_BATTLE = false;

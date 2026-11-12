@@ -38,6 +38,7 @@ import net.sf.colossus.util.Probs;
 import net.sf.colossus.util.ValueRecorder;
 import net.sf.colossus.variant.BattleHex;
 import net.sf.colossus.variant.CreatureType;
+import net.sf.colossus.game.LauerPower;
 import net.sf.colossus.variant.HazardTerrain;
 import net.sf.colossus.variant.MasterBoardTerrain;
 import net.sf.colossus.variant.MasterHex;
@@ -283,7 +284,15 @@ public class SimpleAI extends AbstractAI
 
     private void splitOneLegion(Player player, Legion legion)
     {
-        if (legion.getHeight() < 7)
+        // Amoeba on turn 1 must split twice: allow height-8 split (12→8+4, 8→4+4)
+        int minSplitHeight = 7;
+        if (client.getTurnNumber() == 1
+            && player.hasPower(LauerPower.AMOEBA)
+            && player.getLegions().size() < 3)
+        {
+            minSplitHeight = 5; // need at least 5 to split off 4 and keep 1+
+        }
+        if (legion.getHeight() < minSplitHeight)
         {
             return;
         }
@@ -417,6 +426,41 @@ public class SimpleAI extends AbstractAI
         // centaurs, 2 gargoyles, and 2 cyclops, split out the
         // gargoyles)
         //
+        // Amoeba turn 1: split off 4 creatures (12→8+4, then 8→4+4)
+        if (client.getTurnNumber() == 1
+            && client.getOwningPlayer().hasPower(LauerPower.AMOEBA)
+            && client.getOwningPlayer().getLegions().size() < 3)
+        {
+            List<CreatureType> splitoffs = new ArrayList<CreatureType>();
+            List<CreatureType> all = new ArrayList<CreatureType>();
+            for (net.sf.colossus.game.Creature c : legion.getCreatures())
+            {
+                all.add(c.getType());
+            }
+            // Split off 4 creatures evenly by type
+            java.util.Map<CreatureType, Integer> counts =
+                new java.util.LinkedHashMap<CreatureType, Integer>();
+            for (CreatureType ct : all)
+            {
+                counts.put(ct, counts.getOrDefault(ct, 0) + 1);
+            }
+            // Round-robin: take 1 of each type until we have 4
+            while (splitoffs.size() < 4)
+            {
+                for (CreatureType ct : new ArrayList<CreatureType>(
+                    counts.keySet()))
+                {
+                    if (splitoffs.size() >= 4) break;
+                    if (counts.get(ct) > 0)
+                    {
+                        splitoffs.add(ct);
+                        counts.put(ct, counts.get(ct) - 1);
+                    }
+                }
+            }
+            return splitoffs;
+        }
+
         if (legion.getHeight() == 8)
         {
             // doInitialGameSplit only works on tower hexes

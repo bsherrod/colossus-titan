@@ -1,0 +1,7 @@
+#! /bin/bash
+ant clean jar && \
+cp Colossus.jar Colossus-run-$$.jar && \
+trap "rm -f Colossus-run-$$.jar" EXIT && \
+MEM_SIZE=1024M && \
+[ -e ~/.colossus/jre.SH ] && source ~/.colossus/jre.SH
+java $COLOSSUS_JRE_ARGS -Djava.util.logging.config.file=logging.properties -Xmx$MEM_SIZE -jar "Colossus-run-$$.jar" "$@"

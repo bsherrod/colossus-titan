@@ -87,10 +87,12 @@ public final class GetPlayers extends KFrame
     private final JComboBox[] playerTypes = new JComboBox[Constants.MAX_MAX_PLAYERS];
     @SuppressWarnings({ "rawtypes" })
     private final JComboBox[] playerNames = new JComboBox[Constants.MAX_MAX_PLAYERS];
+    private final JPanel[] playerPanes = new JPanel[Constants.MAX_MAX_PLAYERS];
     private JEditorPane readme = new JEditorPane();
     private JScrollPane readmeScrollPane;
     private final JTabbedPane tabbedPane;
     private PowerListPanel[] powerListPanels;
+    private JPanel[] powerPlayerPanels;
 
     private final JComboBox<String> variantBox;
     private final Vector<String> variantVector;
@@ -461,9 +463,12 @@ public final class GetPlayers extends KFrame
         JPanel powersPane = new JPanel(new BorderLayout());
         powersPane.setBorder(new TitledBorder("Lauer Powers"));
 
-        JPanel powersPlayersPanel = new JPanel(new GridLayout(0, 1));
+        JPanel powersPlayersPanel = new JPanel();
+        powersPlayersPanel.setLayout(new BoxLayout(powersPlayersPanel,
+            BoxLayout.Y_AXIS));
         final PowerListPanel[] powerPanels =
             new PowerListPanel[Constants.MAX_MAX_PLAYERS];
+        powerPlayerPanels = new JPanel[Constants.MAX_MAX_PLAYERS];
 
         final JTextArea powerDescArea = new JTextArea(3, 40);
         powerDescArea.setEditable(false);
@@ -500,6 +505,22 @@ public final class GetPlayers extends KFrame
             final PowerListPanel plp = new PowerListPanel(3);
             powerPanels[i] = plp;
 
+            JButton randomBtn = new JButton("Random");
+            final JComboBox<String> comboForRandom = powerCombo;
+            randomBtn.addActionListener(new ActionListener()
+            {
+                public void actionPerformed(ActionEvent e)
+                {
+                    int count = comboForRandom.getItemCount();
+                    if (count > 0)
+                    {
+                        int idx = (int)(Math.random() * count);
+                        comboForRandom.setSelectedIndex(idx);
+                    }
+                }
+            });
+            addRow.add(randomBtn);
+
             JButton addBtn = new JButton("Add");
             final JComboBox<String> comboRef = powerCombo;
             addBtn.addActionListener(new ActionListener()
@@ -528,6 +549,7 @@ public final class GetPlayers extends KFrame
             playerPanel.add(addRow, BorderLayout.NORTH);
             playerPanel.add(plp, BorderLayout.CENTER);
             powersPlayersPanel.add(playerPanel);
+            powerPlayerPanels[i] = playerPanel;
         }
 
         JScrollPane powersScrollPane = new JScrollPane(powersPlayersPanel);
@@ -693,6 +715,7 @@ public final class GetPlayers extends KFrame
         if (oldMaxPlayers != VariantSupport.getMaxPlayers())
         {
             enablePlayers();
+            pack();
         }
 
     }
@@ -745,6 +768,7 @@ public final class GetPlayers extends KFrame
         JPanel onePlayerPane = new JPanel();
         onePlayerPane.setLayout(new GridLayout(0, 3));
         allPlayersPane.add(onePlayerPane);
+        playerPanes[i] = onePlayerPane;
 
         String s = "Player " + (i + 1);
         onePlayerPane.add(new JLabel(s));
@@ -879,6 +903,14 @@ public final class GetPlayers extends KFrame
             playerTypes[i].setEnabled(i < maxPlayers);
             playerNames[i].setEnabled(i < maxPlayers);
             playerNames[i].setEditable(true);
+            if (playerPanes[i] != null)
+            {
+                playerPanes[i].setVisible(i < maxPlayers);
+            }
+            if (powerPlayerPanels != null && powerPlayerPanels[i] != null)
+            {
+                powerPlayerPanels[i].setVisible(i < maxPlayers);
+            }
         }
     }
 
@@ -1165,6 +1197,7 @@ public final class GetPlayers extends KFrame
                 if (maxPlayers != VariantSupport.getMaxPlayers())
                 {
                     enablePlayers();
+                    pack();
                 }
             }
         }

@@ -14,3 +14,11 @@ txt
 forceboard
 loadfile
 headless
+
+# Build / test leftovers
+META-INF
+junit*.properties
+junitvmwatcher*.properties
+
+# AI game log corpus (multi-GB, regenerate with run-full-games.sh)
+test-corpus

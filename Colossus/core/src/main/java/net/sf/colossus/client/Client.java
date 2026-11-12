@@ -2553,7 +2553,8 @@ public final class Client implements IClient, IOracle, IVariant,
 
     public boolean canRecruit(Legion legion)
     {
-        return legion.hasMoved() && legion.getHeight() < 7
+        return legion.hasMoved() && legion.getHeight()
+            < legion.getPlayer().getMaxLegionHeight()
             && !legion.hasRecruited() && !legion.getPlayer().isDead()
             && !findEligibleRecruits(legion, legion.getCurrentHex()).isEmpty();
     }
@@ -3411,8 +3412,11 @@ public final class Client implements IClient, IOracle, IVariant,
             return;
         }
 
-        // Enforce only one split on turn 1.
-        if (getTurnNumber() == 1 && numSplitsThisTurn > 0)
+        // Enforce only one split on turn 1 (unless Amoeba/Nine Ball/Demon).
+        if (getTurnNumber() == 1 && numSplitsThisTurn > 0
+            && !getOwningPlayer().hasPower(LauerPower.AMOEBA)
+            && !getOwningPlayer().hasPower(LauerPower.NINE_BALL)
+            && !getOwningPlayer().hasPower(LauerPower.DEMON))
         {
             gui.showMessageDialogAndWait("Can only split once on the first turn");
             kickSplit();
@@ -3492,7 +3496,34 @@ public final class Client implements IClient, IOracle, IVariant,
         LOGGER.log(Level.FINEST, "Client.didSplit " + hex + " " + parent + " "
             + child + " " + childHeight + " " + turn);
 
-        ((LegionClientSide)parent).split(childHeight, child, turn);
+        if (isMyLegion(parent) && splitoffs != null && !splitoffs.isEmpty())
+        {
+            // Active player: use forced split with exact known data.
+            // Avoids PredictSplitNode prediction errors for >8 creatures.
+            List<CreatureType> preSplitParent = new ArrayList<CreatureType>(
+                ((LegionClientSide)parent).getCreatureTypes());
+            List<CreatureType> keepCreatures = new ArrayList<CreatureType>(
+                preSplitParent);
+            for (CreatureType ct : splitoffs)
+            {
+                keepCreatures.remove(ct);
+            }
+            LegionClientSide parentLCS = (LegionClientSide)parent;
+            PredictSplitNode node = parentLCS.getNodeForForcedSplit();
+            if (node != null)
+            {
+                node.forcedSplit(keepCreatures, splitoffs, child, turn);
+                parentLCS.resetNodeToChild1();
+            }
+            else
+            {
+                parentLCS.split(childHeight, child, turn);
+            }
+        }
+        else
+        {
+            ((LegionClientSide)parent).split(childHeight, child, turn);
+        }
         child.setCurrentHex(hex);
 
         if (isMyLegion(child))
@@ -3995,8 +4026,9 @@ public final class Client implements IClient, IOracle, IVariant,
                     int available = ((LegionClientSide)legion)
                         .numCreature(lesser);
                     // Lord of Trees: +1 phantom warbear/minotaur/troll/cyclops
+                    // Only applies if you already have at least one
                     if (legion.getPlayer().hasPower(
-                        LauerPower.LORD_OF_THE_TREES))
+                        LauerPower.LORD_OF_THE_TREES) && available > 0)
                     {
                         String lname = lesser.getName();
                         if (lname.equals("Warbear")
@@ -4165,7 +4197,9 @@ public final class Client implements IClient, IOracle, IVariant,
             }
             int avail = legion.numCreature(possibleRecruiter);
             // Lord of Trees: +1 phantom warbear/minotaur/troll/cyclops
-            if (legion.getPlayer().hasPower(LauerPower.LORD_OF_THE_TREES))
+            // Only applies if you already have at least one
+            if (legion.getPlayer().hasPower(LauerPower.LORD_OF_THE_TREES)
+                && avail > 0)
             {
                 String rname = possibleRecruiter.getName();
                 if (rname.equals("Warbear") || rname.equals("Minotaur")

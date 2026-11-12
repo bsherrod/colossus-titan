@@ -265,7 +265,15 @@ final class SplitLegion extends KDialog
             }
             return false;
         }
-        if (oldChits.size() + newChits.size() == 8)
+        // Standard initial split (8 creatures = Titan+Angel+6): must be 4-4
+        // with one lord in each half. Skip for powers with non-standard starts.
+        if (oldChits.size() + newChits.size() == 8
+            && !gui.getClient().getOwningPlayer().hasPower(
+                net.sf.colossus.game.LauerPower.AMOEBA)
+            && !gui.getClient().getOwningPlayer().hasPower(
+                net.sf.colossus.game.LauerPower.NINE_BALL)
+            && !gui.getClient().getOwningPlayer().hasPower(
+                net.sf.colossus.game.LauerPower.DEMON))
         {
             if (oldChits.size() != newChits.size())
             {

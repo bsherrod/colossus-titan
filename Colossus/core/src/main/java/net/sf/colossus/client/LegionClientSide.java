@@ -183,13 +183,19 @@ public final class LegionClientSide extends Legion implements IOracleLegion
     @Override
     public void addCreature(CreatureType creature)
     {
-        getNode().addCreature(creature);
+        if (getNode() != null)
+        {
+            getNode().addCreature(creature);
+        }
     }
 
     @Override
     public void removeCreature(CreatureType creature)
     {
-        getNode().removeCreature(creature);
+        if (getNode() != null)
+        {
+            getNode().removeCreature(creature);
+        }
     }
 
     /**
@@ -210,15 +216,36 @@ public final class LegionClientSide extends Legion implements IOracleLegion
 
     void split(int childHeight, Legion child, int turn)
     {
-        getNode().split(childHeight, child, turn);
-        myNode = myNode.getChild1();
+        if (getNode() != null)
+        {
+            getNode().split(childHeight, child, turn);
+            myNode = myNode.getChild1();
+        }
+    }
+
+    /** Expose node for forced split (active player with known data). */
+    public PredictSplitNode getNodeForForcedSplit()
+    {
+        return getNode();
+    }
+
+    /** After forcedSplit, move node pointer to child1 (kept portion). */
+    public void resetNodeToChild1()
+    {
+        if (myNode != null)
+        {
+            myNode = myNode.getChild1();
+        }
     }
 
     void merge(Legion splitoff)
     {
         LOGGER.log(Level.FINER, "LegionInfo.merge() for " + splitoff + " "
             + splitoff);
-        getNode().merge(getNode(splitoff.getMarkerId()));
+        if (getNode() != null)
+        {
+            getNode().merge(getNode(splitoff.getMarkerId()));
+        }
         // since this is potentially a merge of a 3-way split, be safe and
         // find the node again
         myNode = getNode(getMarkerId());

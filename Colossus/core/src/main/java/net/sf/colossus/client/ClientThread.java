@@ -245,6 +245,21 @@ public class ClientThread extends Thread implements EventExecutor
             {
                 LOGGER.severe("queue.take() interrupted?!?!");
             }
+            catch (Exception e)
+            {
+                LOGGER.log(java.util.logging.Level.SEVERE,
+                    "FATAL: ClientThread crashed processing event '"
+                    + (event != null ? event.getMethod() : "null")
+                    + "' for client " + client.getOwningPlayer().getName()
+                    + ". Game cannot continue.", e);
+                net.sf.colossus.util.ErrorUtils
+                    .setErrorDuringFunctionalTest(
+                        "ClientThread crash: " + e.getMessage());
+                throw new RuntimeException(
+                    "ClientThread fatal crash in " + (event != null
+                        ? event.getMethod() : "null") + ": " + e.getMessage(),
+                    e);
+            }
 
             if (event != null)
             {

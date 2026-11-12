@@ -2306,6 +2306,20 @@ public class GameServerSide extends Game
 
         syncOptions();
 
+        // Sync Lauer Powers to clients — syncOptions() skips these,
+        // and the new-game power sync only runs for fresh games.
+        int pidx = 0;
+        for (Player p : getPlayers())
+        {
+            String pStr = p.getPowers().serialize();
+            String val = (pStr != null) ? pStr : "";
+            if (!val.isEmpty())
+            {
+                server.allSyncOption(Options.playerPowers + pidx, val);
+            }
+            pidx++;
+        }
+
         server.allUpdatePlayerInfo(true, "LoadGameStart");
         replayOngoing = true;
         server.allTellReplay(true, turnNumber);
@@ -2412,7 +2426,9 @@ public class GameServerSide extends Game
                 int available = ((LegionServerSide)legion)
                     .numCreature(lesser);
                 // Lord of the Trees: +1 phantom for warbear/minotaur/troll/cyclops
-                if (legion.getPlayer().hasPower(LauerPower.LORD_OF_THE_TREES))
+                // Only applies if you already have at least one of that creature
+                if (legion.getPlayer().hasPower(LauerPower.LORD_OF_THE_TREES)
+                    && available > 0)
                 {
                     String name = lesser.getName();
                     if (name.equals("Warbear") || name.equals("Minotaur")
@@ -2937,6 +2953,26 @@ public class GameServerSide extends Game
         return history;
     }
 
+    /** Remove the Amoeba marker Titan spawned for battle (if any). */
+    private void removeAmoebaMarker(LegionServerSide legion)
+    {
+        if (legion == null) return;
+        if (!legion.getPlayer().hasPower(LauerPower.AMOEBA)) return;
+        CreatureType titanType = getVariant().getCreatureByName("Titan");
+        // Remove exactly one Titan (the marker) from the legion
+        java.util.Iterator<CreatureServerSide> it =
+            legion.getCreatures().iterator();
+        while (it.hasNext())
+        {
+            CreatureServerSide c = it.next();
+            if (c.getType().equals(titanType))
+            {
+                it.remove();
+                break;
+            }
+        }
+    }
+
     void finishBattle(MasterHex masterHex, boolean attackerEntered,
         int points, int turnDone)
     {
@@ -2947,6 +2983,17 @@ public class GameServerSide extends Game
         getBattleSS().cleanRefs();
         battle = null;
         server.allCleanupBattle();
+
+        // Remove Amoeba marker Titans from both legions after battle.
+        // The marker is spawned fresh each battle and must not persist.
+        for (Legion leg : getAllLegions())
+        {
+            if (masterHex.equals(leg.getCurrentHex()))
+            {
+                removeAmoebaMarker((LegionServerSide)leg);
+            }
+        }
+
         LegionServerSide battleWinner = null;
 
         // Handle any after-battle angel summoning or recruiting.

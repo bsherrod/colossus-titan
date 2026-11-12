@@ -18,6 +18,7 @@ public class GameServerSideTestAccess extends GameServerSide
     private final HashMap<String, Client> localClients = new HashMap<String, Client>();
 
     private static GameServerSideTestAccess lastGame = null;
+    private static boolean suppressKickPhase = false;
 
     /**
      * The normal constructor to be used everywhere
@@ -69,15 +70,37 @@ public class GameServerSideTestAccess extends GameServerSide
     public static void clearLastGame()
     {
         lastGame = null;
+        suppressKickPhase = false;
+    }
+
+    public static void setSuppressKickPhase(boolean suppress)
+    {
+        suppressKickPhase = suppress;
+    }
+
+    @Override
+    public void kickstartGame()
+    {
+        if (suppressKickPhase)
+        {
+            LOGGER.info("kickstartGame SUPPRESSED for test — notifying only.");
+            notifyTestCaseGameIsUpNow();
+        }
+        else
+        {
+            super.kickstartGame();
+        }
     }
 
     private final Object gameUpMutex = new Object();
+    private boolean gameIsUp = false;
 
     @Override
     protected void notifyTestCaseGameIsUpNow()
     {
         synchronized (gameUpMutex)
         {
+            gameIsUp = true;
             gameUpMutex.notify();
         }
     }
@@ -108,7 +131,10 @@ public class GameServerSideTestAccess extends GameServerSide
         {
             synchronized (gameUpMutex)
             {
-                gameUpMutex.wait();
+                if (!gameIsUp)
+                {
+                    gameUpMutex.wait();
+                }
             }
         }
         catch (InterruptedException e)

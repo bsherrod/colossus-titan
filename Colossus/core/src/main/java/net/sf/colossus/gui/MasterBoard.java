@@ -1649,13 +1649,16 @@ public final class MasterBoard extends JPanel
         {
             boolean beDone = true;
             int cnt;
-            if ((cnt = client.findTallLegionHexes(7, false).size()) > 0
+            int maxHeight = client.getOwningPlayer().getMaxLegionHeight();
+            if ((cnt = client.findTallLegionHexes(maxHeight, false).size()) > 0
                 && (client.getOwningPlayer().getMarkersAvailable().size() >= 1)
                 && gui.getOptions().getOption(Options.confirmNoSplit, true))
             {
                 answer = confirmDialog(
-                    (cnt == 1) ? "with 7 creatures that has not split"
-                        : "with 7 creatures that have not split", cnt);
+                    (cnt == 1) ? "with " + maxHeight
+                        + " creatures that has not split"
+                        : "with " + maxHeight
+                        + " creatures that have not split", cnt);
                 if (answer == Constants.ConfirmVals.DoNotAsk)
                 {
                     client.setPreferencesCheckBoxValue(Options.confirmNoSplit,

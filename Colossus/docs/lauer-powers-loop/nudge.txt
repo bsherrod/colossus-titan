@@ -1,0 +1,3 @@
+PROJECT: /Users/sherrodz/src/colossus-titan/Colossus
+BOARD: docs/lauer-powers-loop/board
+Read docs/lauer-powers-loop/north_star.md and roadmap.md. Pick next task from kanban-md board. Run games, verify logs, fix bugs. STOP: docs/lauer-powers-loop/STOP

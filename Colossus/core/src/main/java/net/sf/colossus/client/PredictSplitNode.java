@@ -411,7 +411,7 @@ public class PredictSplitNode implements Comparable<PredictSplitNode>
     {
         // Sanity checks
         assert knownSplit.size() <= childSize : "More known splitoffs than splitoffs";
-        assert creatures.size() <= 8 : "> 8 creatures in legion";
+        assert creatures.size() <= 12 : "> 12 creatures in legion";
         assert creatures.size() != 8 || childSize == 4 : "Illegal initial split ("
             + childSize + "/" + creatures.size() + ")";
         assert creatures.size() != 8
@@ -691,7 +691,8 @@ public class PredictSplitNode implements Comparable<PredictSplitNode>
      */
     void split(int childSize, Legion otherLegion, int turn)
     {
-        assert creatures.size() <= 8 : "> 8 creatures in legion";
+        // Amoeba can have 12 creatures; standard max is 8
+        assert creatures.size() <= 12 : "> 12 creatures in legion";
         assert !hasSplit() : "use reSplit to recalculate old splits";
 
         List<CreatureType> knownKeep = new ArrayList<CreatureType>();
@@ -726,13 +727,36 @@ public class PredictSplitNode implements Comparable<PredictSplitNode>
     }
 
     /**
+     * Force a split with known creature lists (for active player).
+     * Bypasses prediction when we know exactly what was split.
+     */
+    void forcedSplit(List<CreatureType> keepCreatures,
+        List<CreatureType> splitCreatures, Legion otherLegion, int turn)
+    {
+        CreatureInfoList keepList = new CreatureInfoList();
+        for (CreatureType ct : keepCreatures)
+        {
+            keepList.add(new CreatureInfo(ct, true, true));
+        }
+        CreatureInfoList splitList = new CreatureInfoList();
+        for (CreatureType ct : splitCreatures)
+        {
+            splitList.add(new CreatureInfo(ct, true, true));
+        }
+        child1 = new PredictSplitNode(markerId, turn, keepList, this, variant);
+        child2 = new PredictSplitNode(otherLegion.getMarkerId(), turn,
+            splitList, this, variant);
+        childSize2 = child2.getHeight();
+    }
+
+    /**
      * Recompute the split of a stack, taking advantage of any information
      * potentially gained from the children
      *
      */
     void reSplit()
     {
-        assert creatures.size() <= 8 : "> 8 creatures in legion";
+        assert creatures.size() <= 12 : "> 12 creatures in legion";
 
         List<CreatureType> knownKeep = child1
             .getCertainAtSplitOrRemovedCreatures().getCreatureTypes();
